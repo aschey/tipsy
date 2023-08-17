@@ -101,7 +101,7 @@ impl Endpoint {
     /// New IPC endpoint at the given path
     pub fn new(path: impl Into<String>) -> Self {
         Endpoint {
-            path,
+            path: path.into(),
             security_attributes: SecurityAttributes::empty(),
         }
     }
