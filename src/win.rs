@@ -188,7 +188,7 @@ pub struct SecurityAttributes {
     attributes: Option<InnerAttributes>,
 }
 
-pub const DEFAULT_SECURITY_ATTRIBUTES: SecurityAttributes = SecurityAttributes {
+const DEFAULT_SECURITY_ATTRIBUTES: SecurityAttributes = SecurityAttributes {
     attributes: Some(InnerAttributes {
         descriptor: SecurityDescriptor {
             descriptor_ptr: ptr::null_mut(),
