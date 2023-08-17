@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
@@ -16,7 +16,7 @@ use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::*;
 use windows_sys::Win32::System::SystemServices::*;
 
-use crate::IntoIpcPath;
+use crate::{ConnectionId, IntoIpcPath};
 
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
@@ -27,7 +27,7 @@ const PIPE_AVAILABILITY_TIMEOUT: Duration = Duration::from_secs(5);
 
 impl IntoIpcPath for ConnectionId {
     fn into_ipc_path(self) -> PathBuf {
-        format!(r"\\.\pipe\{}", self.0)
+        PathBuf::from(format!(r"\\.\pipe\{}", self.0))
     }
 }
 
@@ -84,13 +84,13 @@ impl Endpoint {
     }
 
     /// Returns the path of the endpoint.
-    pub fn path(&self) -> Path {
+    pub fn path(&self) -> &Path {
         &self.path
     }
 
     /// Make new connection using the provided path and running event pool.
     pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
-        let path = path.as_ref();
+        let path = path.into_ipc_path();
 
         // There is not async equivalent of waiting for a named pipe in Windows,
         // so we keep trying or sleeping for a bit, until we hit a timeout
@@ -99,7 +99,7 @@ impl Endpoint {
             match named_pipe::ClientOptions::new()
                 .read(true)
                 .write(true)
-                .open(path)
+                .open(&path)
             {
                 Ok(client) => break client,
                 Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => {
@@ -120,7 +120,7 @@ impl Endpoint {
     /// New IPC endpoint at the given path
     pub fn new(path: impl IntoIpcPath) -> Self {
         Endpoint {
-            path: path.into_endpoint(),
+            path: path.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
             created_listener: false,
         }
