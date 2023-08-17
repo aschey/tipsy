@@ -15,22 +15,20 @@ pub use unix::{Connection, Endpoint, SecurityAttributes};
 ///
 /// # Examples
 ///
-/// ```ignore
-/// use parity_tokio_ipc::{Endpoint, dummy_endpoint};
+/// ```no_run
+/// use parity_tokio_ipc::Endpoint;
 /// use futures::{future, Future, Stream, StreamExt};
-/// use tokio::runtime::Runtime;
+/// use tokio::runtime;
 ///
-/// fn main() {
-///     let mut runtime = Runtime::new().unwrap();
-///     let mut endpoint = Endpoint::new(dummy_endpoint());
-///     let server = endpoint.incoming()
-///         .expect("failed to open up a new pipe/socket")
-///         .for_each(|_stream| {
-///             println!("Connection received");
-///             futures::future::ready(())
-///         });
-///      runtime.block_on(server)
-/// }
+/// let mut runtime = runtime::Builder::new_current_thread().build().unwrap();
+/// let mut endpoint = Endpoint::new("path");
+/// let server = endpoint.incoming()
+///     .expect("failed to open up a new pipe/socket")
+///     .for_each(|_stream| {
+///         println!("Connection received");
+///         futures::future::ready(())
+///     });
+///  runtime.block_on(server)
 ///```
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, SecurityAttributes};
