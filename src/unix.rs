@@ -16,7 +16,7 @@ pub struct SecurityAttributes {
 
 impl SecurityAttributes {
     /// New default security attributes. These only allow access by the
-    /// process’s own user and the system administrator.
+    /// process' own user and the system administrator.
     pub fn empty() -> Self {
         SecurityAttributes { mode: Some(0o600) }
     }
