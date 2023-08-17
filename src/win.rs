@@ -16,6 +16,8 @@ use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::*;
 use windows_sys::Win32::System::SystemServices::*;
 
+use crate::IntoIpcPath;
+
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
     Client(named_pipe::NamedPipeClient),
@@ -23,9 +25,15 @@ enum NamedPipe {
 
 const PIPE_AVAILABILITY_TIMEOUT: Duration = Duration::from_secs(5);
 
+impl IntoIpcPath for ConnectionId {
+    fn into_ipc_path(self) -> PathBuf {
+        format!(r"\\.\pipe\{}", self.0)
+    }
+}
+
 /// Endpoint implementation for windows
 pub struct Endpoint {
-    path: String,
+    path: PathBuf,
     security_attributes: SecurityAttributes,
     created_listener: bool,
 }
@@ -76,12 +84,12 @@ impl Endpoint {
     }
 
     /// Returns the path of the endpoint.
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> Path {
         &self.path
     }
 
     /// Make new connection using the provided path and running event pool.
-    pub async fn connect<P: AsRef<Path>>(path: P) -> io::Result<Connection> {
+    pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
         let path = path.as_ref();
 
         // There is not async equivalent of waiting for a named pipe in Windows,
@@ -110,9 +118,9 @@ impl Endpoint {
     }
 
     /// New IPC endpoint at the given path
-    pub fn new(path: impl Into<String>) -> Self {
+    pub fn new(path: impl IntoIpcPath) -> Self {
         Endpoint {
-            path: path.into(),
+            path: path.into_endpoint(),
             security_attributes: SecurityAttributes::empty(),
             created_listener: false,
         }

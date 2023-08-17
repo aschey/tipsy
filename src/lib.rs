@@ -9,6 +9,8 @@ mod unix;
 #[cfg(windows)]
 mod win;
 
+use std::path::PathBuf;
+
 #[cfg(unix)]
 pub use unix::{Connection, Endpoint, SecurityAttributes};
 /// Endpoint for IPC transport
@@ -33,6 +35,25 @@ pub use unix::{Connection, Endpoint, SecurityAttributes};
 /// ```
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, SecurityAttributes};
+
+/// Trait representing a path used for an IPC client or server
+pub trait IntoIpcPath {
+    /// Convert the object into an IPC path
+    fn into_ipc_path(self) -> PathBuf;
+}
+
+impl<T> IntoIpcPath for T
+where
+    T: Into<PathBuf>,
+{
+    fn into_ipc_path(self) -> PathBuf {
+        self.into()
+    }
+}
+
+/// Cross-platform representation of an IPC connection
+#[derive(Clone, Debug)]
+pub struct ConnectionId(pub String);
 
 #[cfg(test)]
 mod tests {

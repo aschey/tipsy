@@ -18,6 +18,7 @@ tracing = "0.1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2.65"
+dirs = "5"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.48", features = [

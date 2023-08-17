@@ -1,6 +1,7 @@
+use std::env::temp_dir;
 use std::ffi::CString;
 use std::io::{self, Error};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
@@ -8,6 +9,8 @@ use futures::Stream;
 use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
+
+use crate::{ConnectionId, IntoIpcPath};
 
 /// Socket permissions and ownership on UNIX
 pub struct SecurityAttributes {
@@ -56,9 +59,25 @@ impl SecurityAttributes {
     }
 }
 
+impl IntoIpcPath for ConnectionId {
+    fn into_ipc_path(self) -> PathBuf {
+        #[cfg(target_os = "macos")]
+        match dirs::home_dir() {
+            Some(home) => home.join(format!("Library/Caches/TemporaryItems/{}.sock", self.0)),
+            None => temp_dir().join(format!("{}.sock", self.0)),
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        match dirs::runtime_dir() {
+            Some(runtime_dir) => runtime_dir.join(format!("{}.sock", self.0)),
+            None => temp_dir().join(format!("{}.sock", self.0)),
+        }
+    }
+}
+
 /// Endpoint implementation for unix systems
 pub struct Endpoint {
-    path: String,
+    path: PathBuf,
     security_attributes: SecurityAttributes,
 }
 
@@ -71,9 +90,22 @@ impl Endpoint {
         let listener = self.inner()?;
         // the call to bind in `inner()` creates the file
         // `apply_permission()` will set the file permissions.
-        self.security_attributes.apply_permissions(&self.path)?;
+        self.security_attributes
+            .apply_permissions(&self.path.to_string_lossy())?;
         Ok(Incoming {
-            path: self.path,
+            path: Some(self.path),
+            listener,
+        })
+    }
+
+    /// Create a listener from an existing [UnixListener](std::os::unix::net::UnixListener)
+    pub fn from_std_listener(
+        listener: std::os::unix::net::UnixListener,
+    ) -> io::Result<impl Stream<Item = std::io::Result<impl AsyncRead + AsyncWrite>> + 'static>
+    {
+        let listener = UnixListener::from_std(listener)?;
+        Ok(Incoming {
+            path: None,
             listener,
         })
     }
@@ -89,19 +121,26 @@ impl Endpoint {
     }
 
     /// Make new connection using the provided path and running event pool
-    pub async fn connect<P: AsRef<Path>>(path: P) -> io::Result<Connection> {
-        Ok(Connection::wrap(UnixStream::connect(path.as_ref()).await?))
+    pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+        Ok(Connection::wrap(
+            UnixStream::connect(path.into_ipc_path()).await?,
+        ))
+    }
+
+    /// Create a stream from an existing [UnixStream](std::os::unix::net::UnixStream)
+    pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Connection> {
+        Ok(Connection::wrap(UnixStream::from_std(stream)?))
     }
 
     /// Returns the path of the endpoint.
-    pub fn path(&self) -> &str {
+    pub fn path(&self) -> &Path {
         &self.path
     }
 
     /// New IPC endpoint at the given path
-    pub fn new(path: impl Into<String>) -> Self {
+    pub fn new(endpoint: impl IntoIpcPath) -> Self {
         Endpoint {
-            path: path.into(),
+            path: endpoint.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
         }
     }
@@ -111,7 +150,7 @@ impl Endpoint {
 ///
 /// Removes the bound socket file when dropped.
 struct Incoming {
-    path: String,
+    path: Option<PathBuf>,
     listener: UnixListener,
 }
 
@@ -130,8 +169,10 @@ impl Stream for Incoming {
 impl Drop for Incoming {
     fn drop(&mut self) {
         use std::fs;
-        if let Ok(()) = fs::remove_file(&self.path) {
-            tracing::trace!("Removed socket file at: {}", self.path)
+        if let Some(path) = &self.path {
+            if let Ok(()) = fs::remove_file(path) {
+                tracing::trace!("Removed socket file at: {:?}", path)
+            }
         }
     }
 }
