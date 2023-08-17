@@ -1,10 +1,11 @@
-use futures::Stream;
-use libc::chmod;
 use std::ffi::CString;
 use std::io::{self, Error};
 use std::path::Path;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+
+use futures::Stream;
+use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
 
@@ -98,7 +99,7 @@ impl Endpoint {
     }
 
     /// New IPC endpoint at the given path
-    pub fn new(path: String) -> Self {
+    pub fn new(path: impl Into<String>) -> Self {
         Endpoint {
             path,
             security_attributes: SecurityAttributes::empty(),

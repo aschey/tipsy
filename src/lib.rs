@@ -16,32 +16,35 @@ pub use unix::{Connection, Endpoint, SecurityAttributes};
 /// # Examples
 ///
 /// ```no_run
-/// use parity_tokio_ipc::Endpoint;
 /// use futures::{future, Future, Stream, StreamExt};
+/// use parity_tokio_ipc::Endpoint;
 /// use tokio::runtime;
 ///
 /// let mut runtime = runtime::Builder::new_current_thread().build().unwrap();
 /// let mut endpoint = Endpoint::new("path");
-/// let server = endpoint.incoming()
+/// let server = endpoint
+///     .incoming()
 ///     .expect("failed to open up a new pipe/socket")
 ///     .for_each(|_stream| {
 ///         println!("Connection received");
 ///         futures::future::ready(())
 ///     });
-///  runtime.block_on(server)
-///```
+/// runtime.block_on(server)
+/// ```
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, SecurityAttributes};
 
 #[cfg(test)]
 mod tests {
-    use futures::{channel::oneshot, FutureExt as _, StreamExt as _};
+    use std::path::Path;
     use std::time::Duration;
+
+    use futures::channel::oneshot;
+    use futures::future::{ready, select, Either};
+    use futures::{FutureExt as _, StreamExt as _};
     use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
     use super::{Endpoint, SecurityAttributes};
-    use futures::future::{ready, select, Either};
-    use std::path::Path;
 
     fn dummy_endpoint() -> String {
         let num: u64 = rand::Rng::gen(&mut rand::thread_rng());

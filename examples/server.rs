@@ -1,7 +1,6 @@
 use futures::StreamExt as _;
-use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
-
 use parity_tokio_ipc::{Endpoint, SecurityAttributes};
+use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
 async fn run_server(path: String) {
     let mut endpoint = Endpoint::new(path);

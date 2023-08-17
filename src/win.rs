@@ -1,18 +1,15 @@
-use std::io;
-use std::marker;
-use std::mem;
 use std::path::Path;
 use std::pin::Pin;
-use std::ptr;
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
+use std::{io, marker, mem, ptr};
 
 use futures::Stream;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::windows::named_pipe;
-use windows_sys::Win32::Foundation::GENERIC_READ;
-use windows_sys::Win32::Foundation::GENERIC_WRITE;
-use windows_sys::Win32::Foundation::{ERROR_PIPE_BUSY, ERROR_SUCCESS, PSID};
+use windows_sys::Win32::Foundation::{
+    ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, PSID,
+};
 use windows_sys::Win32::Security::Authorization::*;
 use windows_sys::Win32::Security::*;
 use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
@@ -465,8 +462,9 @@ mod test {
 
     #[test]
     fn test_allow_eveyone_read_write() {
-        SecurityAttributes::empty()
-            .allow_everyone_connect()
-            .expect("failed to create security attributes that allow everyone to read and write to/from a pipe");
+        SecurityAttributes::empty().allow_everyone_connect().expect(
+            "failed to create security attributes that allow everyone to read and write to/from a \
+             pipe",
+        );
     }
 }
