@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 use futures::Stream;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::windows::named_pipe;
+use windows_sys::Win32::Foundation::GENERIC_READ;
+use windows_sys::Win32::Foundation::GENERIC_WRITE;
 use windows_sys::Win32::Foundation::{ERROR_PIPE_BUSY, ERROR_SUCCESS, PSID};
 use windows_sys::Win32::Security::Authorization::*;
 use windows_sys::Win32::Security::*;
@@ -40,7 +42,7 @@ impl Endpoint {
 
         let stream =
             futures::stream::try_unfold((pipe, self), |(listener, mut endpoint)| async move {
-                let () = listener.connect().await?;
+                listener.connect().await?;
 
                 let new_listener = endpoint.create_listener()?;
 
@@ -63,7 +65,7 @@ impl Endpoint {
                 .out_buffer_size(65536)
                 .create_with_security_attributes_raw(
                     &self.path,
-                    self.security_attributes.as_ptr() as *mut libc::c_void,
+                    self.security_attributes.as_ptr().cast_mut().cast(),
                 )
         }?;
         self.created_listener = true;
@@ -294,7 +296,7 @@ impl<'a> AceWithSid<'a> {
         let mut explicit_access = unsafe { mem::zeroed::<EXPLICIT_ACCESS_W>() };
         explicit_access.Trustee.TrusteeForm = TRUSTEE_IS_SID;
         explicit_access.Trustee.TrusteeType = trustee_type;
-        explicit_access.Trustee.ptstrName = unsafe { sid.as_ptr() as *mut _ };
+        explicit_access.Trustee.ptstrName = unsafe { sid.as_ptr().cast() };
 
         AceWithSid {
             explicit_access,
@@ -332,7 +334,7 @@ impl Acl {
         let result = unsafe {
             SetEntriesInAclW(
                 entries.len() as u32,
-                entries.as_mut_ptr() as *mut _,
+                entries.as_mut_ptr().cast(),
                 ptr::null_mut(),
                 &mut acl_ptr,
             )
@@ -447,7 +449,7 @@ impl InnerAttributes {
     }
 
     unsafe fn as_ptr(&mut self) -> *const SECURITY_ATTRIBUTES {
-        &mut self.attrs as *mut _
+        &mut self.attrs
     }
 }
 
