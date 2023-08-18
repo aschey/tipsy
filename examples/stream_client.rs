@@ -1,4 +1,4 @@
-use parity_tokio_ipc::{ConnectionId, Endpoint};
+use parity_tokio_ipc::{ConnectionId, ConnectionType, Endpoint, IpcEndpoint};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main(flavor = "current_thread")]
@@ -7,7 +7,7 @@ async fn main() {
         .nth(1)
         .expect("Run it with server path to connect as argument");
 
-    let mut client = Endpoint::connect(ConnectionId(path))
+    let mut client = Endpoint::connect(ConnectionId(path), ConnectionType::Stream)
         .await
         .expect("Failed to connect client.");
 

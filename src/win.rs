@@ -4,9 +4,10 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use std::{io, marker, mem, ptr};
 
-use futures::Stream;
+use async_trait::async_trait;
+use futures::{Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::windows::named_pipe;
+use tokio::net::windows::named_pipe::{self, PipeMode};
 use windows_sys::Win32::Foundation::{
     ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, PSID,
 };
@@ -16,7 +17,7 @@ use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::*;
 use windows_sys::Win32::System::SystemServices::*;
 
-use crate::{ConnectionId, IntoIpcPath};
+use crate::{ConnectionId, ConnectionType, IntoIpcPath, IpcEndpoint, IpcSecurity};
 
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
@@ -35,35 +36,17 @@ impl IntoIpcPath for ConnectionId {
 pub struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
+    connection_type: ConnectionType,
     created_listener: bool,
 }
 
 impl Endpoint {
-    /// Stream of incoming connections
-    pub fn incoming(
-        mut self,
-    ) -> io::Result<impl Stream<Item = io::Result<impl AsyncRead + AsyncWrite>> + 'static> {
-        let pipe = self.create_listener()?;
-
-        let stream =
-            futures::stream::try_unfold((pipe, self), |(listener, mut endpoint)| async move {
-                listener.connect().await?;
-
-                let new_listener = endpoint.create_listener()?;
-
-                let conn = Connection::wrap(NamedPipe::Server(listener));
-
-                Ok(Some((conn, (new_listener, endpoint))))
-            });
-
-        Ok(stream)
-    }
-
-    fn create_listener(&mut self) -> io::Result<named_pipe::NamedPipeServer> {
+    fn create_listener(&mut self, pipe_mode: PipeMode) -> io::Result<named_pipe::NamedPipeServer> {
         let server = unsafe {
             named_pipe::ServerOptions::new()
                 .first_pipe_instance(!self.created_listener)
                 .reject_remote_clients(true)
+                .pipe_mode(pipe_mode)
                 .access_inbound(true)
                 .access_outbound(true)
                 .in_buffer_size(65536)
@@ -78,18 +61,7 @@ impl Endpoint {
         Ok(server)
     }
 
-    /// Set security attributes for the connection
-    pub fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
-        self.security_attributes = security_attributes;
-    }
-
-    /// Returns the path of the endpoint.
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    /// Make new connection using the provided path and running event pool.
-    pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+    async fn connect(path: impl IntoIpcPath, pipe_mode: PipeMode) -> io::Result<Connection> {
         let path = path.into_ipc_path();
 
         // There is not async equivalent of waiting for a named pipe in Windows,
@@ -97,6 +69,7 @@ impl Endpoint {
         let attempt_start = Instant::now();
         let client = loop {
             match named_pipe::ClientOptions::new()
+                .pipe_mode(pipe_mode)
                 .read(true)
                 .write(true)
                 .open(&path)
@@ -116,14 +89,80 @@ impl Endpoint {
 
         Ok(Connection::wrap(NamedPipe::Client(client)))
     }
+}
+
+#[async_trait]
+impl IpcEndpoint for Endpoint {
+    fn incoming(self) -> io::Result<IpcStream> {
+        IpcStream::new(self)
+    }
+
+    fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
+        self.security_attributes = security_attributes;
+    }
+
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    async fn connect(
+        path: impl IntoIpcPath,
+        connection_type: ConnectionType,
+    ) -> io::Result<Connection> {
+        Self::connect(
+            path,
+            match connection_type {
+                ConnectionType::Stream => PipeMode::Byte,
+                ConnectionType::Datagram => PipeMode::Message,
+            },
+        )
+        .await
+    }
 
     /// New IPC endpoint at the given path
-    pub fn new(path: impl IntoIpcPath) -> Self {
+    fn new(path: impl IntoIpcPath, connection_type: ConnectionType) -> Self {
         Endpoint {
             path: path.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
+            connection_type,
             created_listener: false,
         }
+    }
+}
+
+/// Stream of IPC connections
+pub struct IpcStream {
+    inner: Pin<Box<dyn Stream<Item = io::Result<Connection>> + Send>>,
+}
+
+impl IpcStream {
+    fn new(mut endpoint: Endpoint) -> io::Result<Self> {
+        let pipe_mode = match endpoint.connection_type {
+            ConnectionType::Stream => PipeMode::Byte,
+            ConnectionType::Datagram => PipeMode::Message,
+        };
+        let pipe = endpoint.create_listener(pipe_mode)?;
+
+        let stream =
+            futures::stream::try_unfold((pipe, endpoint), |(listener, mut endpoint)| async move {
+                listener.connect().await?;
+                let new_listener = endpoint.create_listener(listener.info().unwrap().mode)?;
+                let conn = Connection::wrap(NamedPipe::Server(listener));
+
+                Ok(Some((conn, (new_listener, endpoint))))
+            });
+        Ok(Self {
+            inner: Box::pin(stream),
+        })
+    }
+}
+
+impl Stream for IpcStream {
+    type Item = io::Result<Connection>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.inner).poll_next_unpin(cx)
     }
 }
 
@@ -205,39 +244,37 @@ const DEFAULT_SECURITY_ATTRIBUTES: SecurityAttributes = SecurityAttributes {
 };
 
 impl SecurityAttributes {
-    /// New default security attributes.
-    pub fn empty() -> SecurityAttributes {
-        DEFAULT_SECURITY_ATTRIBUTES
-    }
-
-    /// New default security attributes that allow everyone to connect.
-    pub fn allow_everyone_connect(&self) -> io::Result<SecurityAttributes> {
-        let attributes = Some(InnerAttributes::allow_everyone(
-            GENERIC_READ | FILE_WRITE_DATA,
-        )?);
-        Ok(SecurityAttributes { attributes })
-    }
-
-    /// Set a custom permission on the socket
-    pub fn set_mode(self, _mode: u32) -> io::Result<Self> {
-        // for now, does nothing.
-        Ok(self)
-    }
-
-    /// New default security attributes that allow everyone to create.
-    pub fn allow_everyone_create() -> io::Result<SecurityAttributes> {
-        let attributes = Some(InnerAttributes::allow_everyone(
-            GENERIC_READ | GENERIC_WRITE,
-        )?);
-        Ok(SecurityAttributes { attributes })
-    }
-
     /// Return raw handle of security attributes.
     pub(crate) unsafe fn as_ptr(&mut self) -> *const SECURITY_ATTRIBUTES {
         match self.attributes.as_mut() {
             Some(attributes) => attributes.as_ptr(),
             None => ptr::null_mut(),
         }
+    }
+}
+
+impl IpcSecurity for SecurityAttributes {
+    fn empty() -> SecurityAttributes {
+        DEFAULT_SECURITY_ATTRIBUTES
+    }
+
+    fn allow_everyone_connect(&self) -> io::Result<SecurityAttributes> {
+        let attributes = Some(InnerAttributes::allow_everyone(
+            GENERIC_READ | FILE_WRITE_DATA,
+        )?);
+        Ok(SecurityAttributes { attributes })
+    }
+
+    fn set_mode(self, _mode: u32) -> io::Result<Self> {
+        // for now, does nothing.
+        Ok(self)
+    }
+
+    fn allow_everyone_create() -> io::Result<SecurityAttributes> {
+        let attributes = Some(InnerAttributes::allow_everyone(
+            GENERIC_READ | GENERIC_WRITE,
+        )?);
+        Ok(SecurityAttributes { attributes })
     }
 }
 
@@ -461,6 +498,7 @@ impl InnerAttributes {
 #[cfg(test)]
 mod test {
     use super::SecurityAttributes;
+    use crate::IpcSecurity;
 
     #[test]
     fn test_allow_everyone_everything() {

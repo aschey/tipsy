@@ -9,8 +9,10 @@ mod unix;
 #[cfg(windows)]
 mod win;
 
-use std::path::PathBuf;
+use std::io;
+use std::path::{Path, PathBuf};
 
+use async_trait::async_trait;
 #[cfg(unix)]
 pub use unix::{Connection, Endpoint, SecurityAttributes};
 /// Endpoint for IPC transport
@@ -34,17 +36,58 @@ pub use unix::{Connection, Endpoint, SecurityAttributes};
 /// runtime.block_on(server)
 /// ```
 #[cfg(windows)]
-pub use win::{Connection, Endpoint, SecurityAttributes};
+pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
+
+/// IPC connection type
+#[derive(Clone, Copy, Debug)]
+pub enum ConnectionType {
+    /// Stream connection
+    Stream,
+    /// Datagram connection
+    Datagram,
+}
+
+/// Endpoint trait shared by windows and unix implementations
+#[async_trait]
+pub trait IpcEndpoint: Send {
+    /// Stream of incoming connections
+    fn incoming(self) -> io::Result<IpcStream>;
+    // fn incoming_messages(self) -> io::Result<IpcStream>;
+    /// Set security attributes for the connection
+    fn set_security_attributes(&mut self, security_attributes: SecurityAttributes);
+    /// Returns the path of the endpoint.
+    fn path(&self) -> &Path;
+    /// Make new connection using the provided path and running event pool.
+    async fn connect(
+        path: impl IntoIpcPath,
+        connection_type: ConnectionType,
+    ) -> io::Result<Connection>;
+    // async fn connect_messages(path: impl IntoIpcPath) -> io::Result<Connection>;
+    /// New IPC endpoint at the given path
+    fn new(path: impl IntoIpcPath, connection_type: ConnectionType) -> Self;
+}
+
+/// Security trait used by windows and unix implementations
+pub trait IpcSecurity: Send + Sized {
+    /// New default security attributes.
+    fn empty() -> Self;
+    /// New default security attributes that allow everyone to connect.
+    fn allow_everyone_connect(&self) -> io::Result<Self>;
+    /// Set a custom permission on the socket
+    fn set_mode(self, mode: u32) -> io::Result<Self>;
+    /// New default security attributes that allow everyone to create.
+    fn allow_everyone_create() -> io::Result<Self>;
+}
 
 /// Trait representing a path used for an IPC client or server
-pub trait IntoIpcPath {
+pub trait IntoIpcPath: Send {
     /// Convert the object into an IPC path
     fn into_ipc_path(self) -> PathBuf;
 }
 
 impl<T> IntoIpcPath for T
 where
-    T: Into<PathBuf>,
+    T: Into<PathBuf> + Send,
 {
     fn into_ipc_path(self) -> PathBuf {
         self.into()
@@ -66,6 +109,7 @@ mod tests {
     use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
     use super::{Endpoint, SecurityAttributes};
+    use crate::{ConnectionType, IpcEndpoint, IpcSecurity};
 
     fn dummy_endpoint() -> String {
         let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
@@ -78,7 +122,7 @@ mod tests {
 
     async fn run_server(path: String) {
         let path = path.to_owned();
-        let mut endpoint = Endpoint::new(path);
+        let mut endpoint = Endpoint::new(path, ConnectionType::Stream);
 
         endpoint.set_security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
         let incoming = endpoint.incoming().expect("failed to open up a new socket");
@@ -122,12 +166,12 @@ mod tests {
         tokio::time::sleep(Duration::from_secs(2)).await;
 
         println!("Connecting to client 0...");
-        let mut client_0 = Endpoint::connect(&path)
+        let mut client_0 = Endpoint::connect(&path, ConnectionType::Stream)
             .await
             .expect("failed to open client_0");
         tokio::time::sleep(Duration::from_secs(2)).await;
         println!("Connecting to client 1...");
-        let mut client_1 = Endpoint::connect(&path)
+        let mut client_1 = Endpoint::connect(&path, ConnectionType::Stream)
             .await
             .expect("failed to open client_1");
         let msg = b"hello";
@@ -170,7 +214,7 @@ mod tests {
         fn is_static<T: 'static>(_: T) {}
 
         let path = dummy_endpoint();
-        let endpoint = Endpoint::new(path);
+        let endpoint = Endpoint::new(path, ConnectionType::Stream);
         is_static(endpoint.incoming());
     }
 
@@ -178,7 +222,7 @@ mod tests {
     fn create_pipe_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
         let path = dummy_endpoint();
 
-        let mut endpoint = Endpoint::new(path);
+        let mut endpoint = Endpoint::new(path, ConnectionType::Stream);
         endpoint.set_security_attributes(attr);
         endpoint.incoming().map(|_| ())
     }

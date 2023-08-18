@@ -12,6 +12,7 @@ Interprocess communication library for tokio.
 """
 
 [dependencies]
+async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1.23.1", features = ["net", "time"] }
 tracing = "0.1"
