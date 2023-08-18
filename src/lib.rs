@@ -21,11 +21,11 @@ pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 ///
 /// ```no_run
 /// use futures::{future, Future, Stream, StreamExt};
-/// use parity_tokio_ipc::Endpoint;
+/// use parity_tokio_ipc::{ConnectionType, Endpoint, IpcEndpoint};
 /// use tokio::runtime;
 ///
 /// let mut runtime = runtime::Builder::new_current_thread().build().unwrap();
-/// let mut endpoint = Endpoint::new("path");
+/// let mut endpoint = Endpoint::new("path", ConnectionType::Stream);
 /// let server = endpoint
 ///     .incoming()
 ///     .expect("failed to open up a new pipe/socket")
