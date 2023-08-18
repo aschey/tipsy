@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use async_trait::async_trait;
 #[cfg(unix)]
-pub use unix::{Connection, Endpoint, SecurityAttributes};
+pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 /// Endpoint for IPC transport
 ///
 /// # Examples
@@ -72,9 +72,9 @@ pub trait IpcSecurity: Send + Sized {
     /// New default security attributes.
     fn empty() -> Self;
     /// New default security attributes that allow everyone to connect.
-    fn allow_everyone_connect(&self) -> io::Result<Self>;
+    fn allow_everyone_connect(self) -> io::Result<Self>;
     /// Set a custom permission on the socket
-    fn set_mode(self, mode: u32) -> io::Result<Self>;
+    fn set_mode(self, mode: u16) -> io::Result<Self>;
     /// New default security attributes that allow everyone to create.
     fn allow_everyone_create() -> io::Result<Self>;
 }

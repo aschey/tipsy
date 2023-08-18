@@ -258,14 +258,14 @@ impl IpcSecurity for SecurityAttributes {
         DEFAULT_SECURITY_ATTRIBUTES
     }
 
-    fn allow_everyone_connect(&self) -> io::Result<SecurityAttributes> {
+    fn allow_everyone_connect(self) -> io::Result<Self> {
         let attributes = Some(InnerAttributes::allow_everyone(
             GENERIC_READ | FILE_WRITE_DATA,
         )?);
         Ok(SecurityAttributes { attributes })
     }
 
-    fn set_mode(self, _mode: u32) -> io::Result<Self> {
+    fn set_mode(self, _mode: u16) -> io::Result<Self> {
         // for now, does nothing.
         Ok(self)
     }

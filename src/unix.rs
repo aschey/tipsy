@@ -5,12 +5,13 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
+use async_trait::async_trait;
 use futures::Stream;
 use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::{ConnectionId, IntoIpcPath};
+use crate::{ConnectionId, ConnectionType, IntoIpcPath, IpcEndpoint, IpcSecurity};
 
 /// Socket permissions and ownership on UNIX
 pub struct SecurityAttributes {
@@ -19,32 +20,6 @@ pub struct SecurityAttributes {
 }
 
 impl SecurityAttributes {
-    /// New default security attributes. These only allow access by the
-    /// process' own user and the system administrator.
-    pub fn empty() -> Self {
-        SecurityAttributes { mode: Some(0o600) }
-    }
-
-    /// New security attributes that allow everyone to connect.
-    pub fn allow_everyone_connect(mut self) -> io::Result<Self> {
-        self.mode = Some(0o666);
-        Ok(self)
-    }
-
-    /// Set a custom permission on the socket
-    pub fn set_mode(mut self, mode: u16) -> io::Result<Self> {
-        self.mode = Some(mode);
-        Ok(self)
-    }
-
-    /// New security attributes that allow everyone to create.
-    ///
-    /// This does not work on unix, where it is equivalent to
-    /// [`SecurityAttributes::allow_everyone_connect`].
-    pub fn allow_everyone_create() -> io::Result<Self> {
-        Ok(SecurityAttributes { mode: None })
-    }
-
     /// called in unix, after server socket has been created
     /// will apply security attributes to the socket.
     fn apply_permissions(&self, path: &str) -> io::Result<()> {
@@ -56,6 +31,26 @@ impl SecurityAttributes {
         }
 
         Ok(())
+    }
+}
+
+impl IpcSecurity for SecurityAttributes {
+    fn empty() -> Self {
+        SecurityAttributes { mode: Some(0o600) }
+    }
+
+    fn allow_everyone_connect(mut self) -> io::Result<Self> {
+        self.mode = Some(0o666);
+        Ok(self)
+    }
+
+    fn set_mode(mut self, mode: u16) -> io::Result<Self> {
+        self.mode = Some(mode);
+        Ok(self)
+    }
+
+    fn allow_everyone_create() -> io::Result<Self> {
+        Ok(SecurityAttributes { mode: None })
     }
 }
 
@@ -82,29 +77,13 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-    /// Stream of incoming connections
-    pub fn incoming(
-        self,
-    ) -> io::Result<impl Stream<Item = std::io::Result<impl AsyncRead + AsyncWrite>> + 'static>
-    {
-        let listener = self.inner()?;
-        // the call to bind in `inner()` creates the file
-        // `apply_permission()` will set the file permissions.
-        self.security_attributes
-            .apply_permissions(&self.path.to_string_lossy())?;
-        Ok(Incoming {
-            path: Some(self.path),
-            listener,
-        })
-    }
-
     /// Create a listener from an existing [UnixListener](std::os::unix::net::UnixListener)
     pub fn from_std_listener(
         listener: std::os::unix::net::UnixListener,
     ) -> io::Result<impl Stream<Item = std::io::Result<impl AsyncRead + AsyncWrite>> + 'static>
     {
         let listener = UnixListener::from_std(listener)?;
-        Ok(Incoming {
+        Ok(IpcStream {
             path: None,
             listener,
         })
@@ -115,30 +94,48 @@ impl Endpoint {
         UnixListener::bind(&self.path)
     }
 
-    /// Set security attributes for the connection
-    pub fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
-        self.security_attributes = security_attributes;
-    }
-
-    /// Make new connection using the provided path and running event pool
-    pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
-        Ok(Connection::wrap(
-            UnixStream::connect(path.into_ipc_path()).await?,
-        ))
-    }
-
     /// Create a stream from an existing [UnixStream](std::os::unix::net::UnixStream)
     pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Connection> {
         Ok(Connection::wrap(UnixStream::from_std(stream)?))
     }
+}
 
+#[async_trait]
+impl IpcEndpoint for Endpoint {
+    /// Stream of incoming connections
+    fn incoming(self) -> io::Result<IpcStream> {
+        let listener = self.inner()?;
+        // the call to bind in `inner()` creates the file
+        // `apply_permission()` will set the file permissions.
+        self.security_attributes
+            .apply_permissions(&self.path.to_string_lossy())?;
+        Ok(IpcStream {
+            path: Some(self.path),
+            listener,
+        })
+    }
+
+    /// Set security attributes for the connection
+    fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
+        self.security_attributes = security_attributes;
+    }
+
+    /// Make new connection using the provided path and running event pool
+    async fn connect(
+        path: impl IntoIpcPath,
+        connection_type: ConnectionType,
+    ) -> io::Result<Connection> {
+        Ok(Connection::wrap(
+            UnixStream::connect(path.into_ipc_path()).await?,
+        ))
+    }
     /// Returns the path of the endpoint.
-    pub fn path(&self) -> &Path {
+    fn path(&self) -> &Path {
         &self.path
     }
 
     /// New IPC endpoint at the given path
-    pub fn new(endpoint: impl IntoIpcPath) -> Self {
+    fn new(endpoint: impl IntoIpcPath, connection_type: ConnectionType) -> Self {
         Endpoint {
             path: endpoint.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
@@ -149,12 +146,12 @@ impl Endpoint {
 /// Stream of incoming connections.
 ///
 /// Removes the bound socket file when dropped.
-struct Incoming {
+pub struct IpcStream {
     path: Option<PathBuf>,
     listener: UnixListener,
 }
 
-impl Stream for Incoming {
+impl Stream for IpcStream {
     type Item = io::Result<UnixStream>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -166,7 +163,7 @@ impl Stream for Incoming {
     }
 }
 
-impl Drop for Incoming {
+impl Drop for IpcStream {
     fn drop(&mut self) {
         use std::fs;
         if let Some(path) = &self.path {
