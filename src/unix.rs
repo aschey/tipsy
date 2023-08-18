@@ -10,6 +10,7 @@ use futures::Stream;
 use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
+use tokio_seqpacket::{UnixSeqpacket, UnixSeqpacketListener};
 
 use crate::{ConnectionId, ConnectionType, IntoIpcPath, IpcEndpoint, IpcSecurity};
 
@@ -74,6 +75,7 @@ impl IntoIpcPath for ConnectionId {
 pub struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
+    connection_type: ConnectionType,
 }
 
 impl Endpoint {
@@ -85,18 +87,17 @@ impl Endpoint {
         let listener = UnixListener::from_std(listener)?;
         Ok(IpcStream {
             path: None,
-            listener,
+            listener: ListenerType::Stream(listener),
         })
     }
 
-    /// Inner platform-dependant state of the endpoint
-    fn inner(&self) -> io::Result<UnixListener> {
-        UnixListener::bind(&self.path)
-    }
-
     /// Create a stream from an existing [UnixStream](std::os::unix::net::UnixStream)
-    pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Connection> {
-        Ok(Connection::wrap(UnixStream::from_std(stream)?))
+    pub async fn from_std_unix_stream(
+        stream: std::os::unix::net::UnixStream,
+    ) -> io::Result<Connection> {
+        Ok(Connection::wrap(StreamType::Stream(UnixStream::from_std(
+            stream,
+        )?)))
     }
 }
 
@@ -104,14 +105,18 @@ impl Endpoint {
 impl IpcEndpoint for Endpoint {
     /// Stream of incoming connections
     fn incoming(self) -> io::Result<IpcStream> {
-        let listener = self.inner()?;
         // the call to bind in `inner()` creates the file
         // `apply_permission()` will set the file permissions.
         self.security_attributes
             .apply_permissions(&self.path.to_string_lossy())?;
         Ok(IpcStream {
+            listener: match self.connection_type {
+                ConnectionType::Stream => ListenerType::Stream(UnixListener::bind(&self.path)?),
+                ConnectionType::Datagram => {
+                    ListenerType::Datagram(UnixSeqpacketListener::bind(&self.path)?)
+                }
+            },
             path: Some(self.path),
-            listener,
         })
     }
 
@@ -125,9 +130,11 @@ impl IpcEndpoint for Endpoint {
         path: impl IntoIpcPath,
         connection_type: ConnectionType,
     ) -> io::Result<Connection> {
-        Ok(Connection::wrap(
-            UnixStream::connect(path.into_ipc_path()).await?,
-        ))
+        let path = path.into_ipc_path();
+        Ok(Connection::wrap(match connection_type {
+            ConnectionType::Stream => StreamType::Stream(UnixStream::connect(path).await?),
+            ConnectionType::Datagram => StreamType::Datagram(UnixSeqpacket::connect(path).await?),
+        }))
     }
     /// Returns the path of the endpoint.
     fn path(&self) -> &Path {
@@ -139,8 +146,14 @@ impl IpcEndpoint for Endpoint {
         Endpoint {
             path: endpoint.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
+            connection_type,
         }
     }
+}
+
+enum ListenerType {
+    Stream(UnixListener),
+    Datagram(UnixSeqpacketListener),
 }
 
 /// Stream of incoming connections.
@@ -148,17 +161,27 @@ impl IpcEndpoint for Endpoint {
 /// Removes the bound socket file when dropped.
 pub struct IpcStream {
     path: Option<PathBuf>,
-    listener: UnixListener,
+    listener: ListenerType,
 }
 
 impl Stream for IpcStream {
-    type Item = io::Result<UnixStream>;
+    type Item = io::Result<Connection>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = Pin::into_inner(self);
-        match Pin::new(&mut this.listener).poll_accept(cx) {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(result) => Poll::Ready(Some(result.map(|(stream, _addr)| stream))),
+        match &mut this.listener {
+            ListenerType::Stream(stream) => {
+                let res = futures::ready!(Pin::new(stream).poll_accept(cx));
+                Poll::Ready(Some(res.map(|(stream, _addr)| {
+                    Connection::wrap(StreamType::Stream(stream))
+                })))
+            }
+            ListenerType::Datagram(seqpacket) => {
+                let res = futures::ready!(seqpacket.poll_accept(cx));
+                Poll::Ready(Some(
+                    res.map(|seqpacket| Connection::wrap(StreamType::Datagram(seqpacket))),
+                ))
+            }
         }
     }
 }
@@ -174,13 +197,18 @@ impl Drop for IpcStream {
     }
 }
 
+enum StreamType {
+    Stream(UnixStream),
+    Datagram(UnixSeqpacket),
+}
+
 /// IPC connection.
 pub struct Connection {
-    inner: UnixStream,
+    inner: StreamType,
 }
 
 impl Connection {
-    fn wrap(stream: UnixStream) -> Self {
+    fn wrap(stream: StreamType) -> Self {
         Self { inner: stream }
     }
 }
@@ -188,31 +216,46 @@ impl Connection {
 impl AsyncRead for Connection {
     fn poll_read(
         self: Pin<&mut Self>,
-        ctx: &mut Context<'_>,
+        cx: &mut Context<'_>,
         buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_read(ctx, buf)
+        match &mut Pin::into_inner(self).inner {
+            StreamType::Stream(stream) => Pin::new(stream).poll_read(cx, buf),
+            StreamType::Datagram(seqpacket) => {
+                let unfilled = buf.initialize_unfilled();
+                let res = seqpacket.poll_recv(cx, unfilled);
+                if let Poll::Ready(Ok(n)) = res {
+                    buf.advance(n);
+                }
+                res.map(|r| r.map(|_| ()))
+            }
+        }
     }
 }
 
 impl AsyncWrite for Connection {
     fn poll_write(
         self: Pin<&mut Self>,
-        ctx: &mut Context<'_>,
+        cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, io::Error>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_write(ctx, buf)
+        match &mut Pin::into_inner(self).inner {
+            StreamType::Stream(stream) => Pin::new(stream).poll_write(cx, buf),
+            StreamType::Datagram(seqpacket) => seqpacket.poll_send(cx, buf),
+        }
     }
 
-    fn poll_flush(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_flush(ctx)
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        match &mut Pin::into_inner(self).inner {
+            StreamType::Stream(stream) => Pin::new(stream).poll_flush(cx),
+            StreamType::Datagram(_) => Poll::Ready(Ok(())),
+        }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_shutdown(ctx)
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        match &mut Pin::into_inner(self).inner {
+            StreamType::Stream(stream) => Pin::new(stream).poll_shutdown(cx),
+            StreamType::Datagram(_) => Poll::Ready(Ok(())),
+        }
     }
 }

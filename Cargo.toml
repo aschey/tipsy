@@ -15,6 +15,7 @@ Interprocess communication library for tokio.
 async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1.23.1", features = ["net", "time"] }
+tokio-seqpacket = "0.7.0"
 tracing = "0.1"
 
 [target.'cfg(unix)'.dependencies]
