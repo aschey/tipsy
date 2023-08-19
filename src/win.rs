@@ -17,7 +17,7 @@ use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::*;
 use windows_sys::Win32::System::SystemServices::*;
 
-use crate::{ConnectionId, ConnectionType, IntoIpcPath, IpcEndpoint, IpcSecurity};
+use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity};
 
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
@@ -36,17 +36,15 @@ impl IntoIpcPath for ConnectionId {
 pub struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
-    connection_type: ConnectionType,
     created_listener: bool,
 }
 
 impl Endpoint {
-    fn create_listener(&mut self, pipe_mode: PipeMode) -> io::Result<named_pipe::NamedPipeServer> {
+    fn create_listener(&mut self) -> io::Result<named_pipe::NamedPipeServer> {
         let server = unsafe {
             named_pipe::ServerOptions::new()
                 .first_pipe_instance(!self.created_listener)
                 .reject_remote_clients(true)
-                .pipe_mode(pipe_mode)
                 .access_inbound(true)
                 .access_outbound(true)
                 .in_buffer_size(65536)
@@ -61,7 +59,7 @@ impl Endpoint {
         Ok(server)
     }
 
-    async fn connect(path: impl IntoIpcPath, pipe_mode: PipeMode) -> io::Result<Connection> {
+    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
         let path = path.into_ipc_path();
 
         // There is not async equivalent of waiting for a named pipe in Windows,
@@ -69,7 +67,6 @@ impl Endpoint {
         let attempt_start = Instant::now();
         let client = loop {
             match named_pipe::ClientOptions::new()
-                .pipe_mode(pipe_mode)
                 .read(true)
                 .write(true)
                 .open(&path)
@@ -105,26 +102,15 @@ impl IpcEndpoint for Endpoint {
         &self.path
     }
 
-    async fn connect(
-        path: impl IntoIpcPath,
-        connection_type: ConnectionType,
-    ) -> io::Result<Connection> {
-        Self::connect(
-            path,
-            match connection_type {
-                ConnectionType::Stream => PipeMode::Byte,
-                ConnectionType::Datagram => PipeMode::Message,
-            },
-        )
-        .await
+    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+        Self::connect(path).await
     }
 
     /// New IPC endpoint at the given path
-    fn new(path: impl IntoIpcPath, connection_type: ConnectionType) -> Self {
+    fn new(path: impl IntoIpcPath) -> Self {
         Endpoint {
             path: path.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
-            connection_type,
             created_listener: false,
         }
     }
@@ -137,16 +123,12 @@ pub struct IpcStream {
 
 impl IpcStream {
     fn new(mut endpoint: Endpoint) -> io::Result<Self> {
-        let pipe_mode = match endpoint.connection_type {
-            ConnectionType::Stream => PipeMode::Byte,
-            ConnectionType::Datagram => PipeMode::Message,
-        };
-        let pipe = endpoint.create_listener(pipe_mode)?;
+        let pipe = endpoint.create_listener()?;
 
         let stream =
             futures::stream::try_unfold((pipe, endpoint), |(listener, mut endpoint)| async move {
                 listener.connect().await?;
-                let new_listener = endpoint.create_listener(listener.info().unwrap().mode)?;
+                let new_listener = endpoint.create_listener()?;
                 let conn = Connection::wrap(NamedPipe::Server(listener));
 
                 Ok(Some((conn, (new_listener, endpoint))))

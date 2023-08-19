@@ -20,8 +20,8 @@ pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 /// # Examples
 ///
 /// ```no_run
-/// use futures::{future, Future, IpcEndpoint, Stream, StreamExt};
-/// use parity_tokio_ipc::Endpoint;
+/// use futures::{future, Future, Stream, StreamExt};
+/// use parity_tokio_ipc::{Endpoint, IpcEndpoint};
 /// use tokio::runtime;
 ///
 /// let mut runtime = runtime::Builder::new_current_thread().build().unwrap();
@@ -210,7 +210,7 @@ mod tests {
     fn create_pipe_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
         let path = dummy_endpoint();
 
-        let mut endpoint = Endpoint::new(path, ConnectionType::Stream);
+        let mut endpoint = Endpoint::new(path);
         endpoint.set_security_attributes(attr);
         endpoint.incoming().map(|_| ())
     }
