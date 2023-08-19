@@ -11,7 +11,7 @@ use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::{ConnectionId, ConnectionType, IntoIpcPath, IpcEndpoint, IpcSecurity};
+use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity};
 
 /// Socket permissions and ownership on UNIX
 pub struct SecurityAttributes {
@@ -82,6 +82,7 @@ impl Endpoint {
         listener: std::os::unix::net::UnixListener,
     ) -> io::Result<impl Stream<Item = std::io::Result<impl AsyncRead + AsyncWrite>> + 'static>
     {
+        listener.set_nonblocking(true)?;
         let listener = UnixListener::from_std(listener)?;
         Ok(IpcStream {
             path: None,
@@ -96,6 +97,7 @@ impl Endpoint {
 
     /// Create a stream from an existing [UnixStream](std::os::unix::net::UnixStream)
     pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Connection> {
+        stream.set_nonblocking(true)?;
         Ok(Connection::wrap(UnixStream::from_std(stream)?))
     }
 }
@@ -121,10 +123,7 @@ impl IpcEndpoint for Endpoint {
     }
 
     /// Make new connection using the provided path and running event pool
-    async fn connect(
-        path: impl IntoIpcPath,
-        connection_type: ConnectionType,
-    ) -> io::Result<Connection> {
+    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
         Ok(Connection::wrap(
             UnixStream::connect(path.into_ipc_path()).await?,
         ))
@@ -135,7 +134,7 @@ impl IpcEndpoint for Endpoint {
     }
 
     /// New IPC endpoint at the given path
-    fn new(endpoint: impl IntoIpcPath, connection_type: ConnectionType) -> Self {
+    fn new(endpoint: impl IntoIpcPath) -> Self {
         Endpoint {
             path: endpoint.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),

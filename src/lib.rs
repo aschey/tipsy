@@ -20,7 +20,7 @@ pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 /// # Examples
 ///
 /// ```no_run
-/// use futures::{future, Future, Stream, StreamExt};
+/// use futures::{future, Future, IpcEndpoint, Stream, StreamExt};
 /// use parity_tokio_ipc::Endpoint;
 /// use tokio::runtime;
 ///
@@ -38,15 +38,6 @@ pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 
-/// IPC connection type
-#[derive(Clone, Copy, Debug)]
-pub enum ConnectionType {
-    /// Stream connection
-    Stream,
-    /// Datagram connection
-    Datagram,
-}
-
 /// Endpoint trait shared by windows and unix implementations
 #[async_trait]
 pub trait IpcEndpoint: Send {
@@ -58,13 +49,10 @@ pub trait IpcEndpoint: Send {
     /// Returns the path of the endpoint.
     fn path(&self) -> &Path;
     /// Make new connection using the provided path and running event pool.
-    async fn connect(
-        path: impl IntoIpcPath,
-        connection_type: ConnectionType,
-    ) -> io::Result<Connection>;
+    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection>;
     // async fn connect_messages(path: impl IntoIpcPath) -> io::Result<Connection>;
     /// New IPC endpoint at the given path
-    fn new(path: impl IntoIpcPath, connection_type: ConnectionType) -> Self;
+    fn new(path: impl IntoIpcPath) -> Self;
 }
 
 /// Security trait used by windows and unix implementations
@@ -109,7 +97,7 @@ mod tests {
     use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
     use super::{Endpoint, SecurityAttributes};
-    use crate::{ConnectionType, IpcEndpoint, IpcSecurity};
+    use crate::{IpcEndpoint, IpcSecurity};
 
     fn dummy_endpoint() -> String {
         let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
@@ -122,7 +110,7 @@ mod tests {
 
     async fn run_server(path: String) {
         let path = path.to_owned();
-        let mut endpoint = Endpoint::new(path, ConnectionType::Stream);
+        let mut endpoint = Endpoint::new(path);
 
         endpoint.set_security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
         let incoming = endpoint.incoming().expect("failed to open up a new socket");
@@ -166,12 +154,12 @@ mod tests {
         tokio::time::sleep(Duration::from_secs(2)).await;
 
         println!("Connecting to client 0...");
-        let mut client_0 = Endpoint::connect(&path, ConnectionType::Stream)
+        let mut client_0 = Endpoint::connect(&path)
             .await
             .expect("failed to open client_0");
         tokio::time::sleep(Duration::from_secs(2)).await;
         println!("Connecting to client 1...");
-        let mut client_1 = Endpoint::connect(&path, ConnectionType::Stream)
+        let mut client_1 = Endpoint::connect(&path)
             .await
             .expect("failed to open client_1");
         let msg = b"hello";
@@ -214,7 +202,7 @@ mod tests {
         fn is_static<T: 'static>(_: T) {}
 
         let path = dummy_endpoint();
-        let endpoint = Endpoint::new(path, ConnectionType::Stream);
+        let endpoint = Endpoint::new(path);
         is_static(endpoint.incoming());
     }
 
