@@ -10,11 +10,11 @@ It utilizes unix sockets on UNIX (via `tokio::net::UnixStream`) and named pipes 
 Endpoint is transport-agnostic interface for incoming connections:
 
 ```rust,no_run
-use parity_tokio_ipc::{Endpoint,IpcEndpoint, ConnectionType};
+use parity_tokio_ipc::Endpoint;
 use futures::stream::StreamExt;
 
 let server = async move {
-    Endpoint::new("path", ConnectionType::Stream)
+    Endpoint::new("path")
         .incoming()
         .expect("Couldn't set up server")
         .for_each(|conn| async {
