@@ -83,7 +83,7 @@ where
 }
 
 /// Cross-platform representation of an IPC connection
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ConnectionId(pub String);
 
 #[cfg(test)]

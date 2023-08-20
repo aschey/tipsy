@@ -78,10 +78,7 @@ pub struct Endpoint {
 
 impl Endpoint {
     /// Create a listener from an existing [UnixListener](std::os::unix::net::UnixListener)
-    pub fn from_std_listener(
-        listener: std::os::unix::net::UnixListener,
-    ) -> io::Result<impl Stream<Item = std::io::Result<impl AsyncRead + AsyncWrite>> + 'static>
-    {
+    pub fn from_std_listener(listener: std::os::unix::net::UnixListener) -> io::Result<IpcStream> {
         listener.set_nonblocking(true)?;
         let listener = UnixListener::from_std(listener)?;
         Ok(IpcStream {
