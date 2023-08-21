@@ -202,7 +202,7 @@ mod tests {
     fn create_pipe_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
         let path = dummy_endpoint();
 
-        let mut endpoint = Endpoint::new(path);
+        let mut endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
         endpoint.set_security_attributes(attr);
         endpoint.incoming().map(|_| ())
     }
