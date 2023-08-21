@@ -59,17 +59,17 @@ where
     T: Into<String> + Send,
 {
     fn into_ipc_path(self) -> PathBuf {
-        let id = self.0.into();
+        let sock_name = format!("{}.sock", self.0.into());
         #[cfg(target_os = "macos")]
         match dirs::home_dir() {
-            Some(home) => home.join(format!("Library/Caches/TemporaryItems/{}.sock", self.0)),
-            None => temp_dir().join(format!("{}.sock", self.0)),
+            Some(home) => home.join(format!("Library/Caches/TemporaryItems/{sock_name}")),
+            None => temp_dir().join(sock_name),
         }
 
         #[cfg(not(target_os = "macos"))]
         match dirs::runtime_dir() {
-            Some(runtime_dir) => runtime_dir.join(format!("{}.sock", id)),
-            None => temp_dir().join(format!("{}.sock", id)),
+            Some(runtime_dir) => runtime_dir.join(sock_name),
+            None => temp_dir().join(sock_name),
         }
     }
 }
