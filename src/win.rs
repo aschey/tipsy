@@ -17,7 +17,7 @@ use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::*;
 use windows_sys::Win32::System::SystemServices::*;
 
-use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict};
+use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
 
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
@@ -26,7 +26,7 @@ enum NamedPipe {
 
 const PIPE_AVAILABILITY_TIMEOUT: Duration = Duration::from_secs(5);
 
-impl<T> IntoIpcPath for ConnectionId<T>
+impl<T> IntoIpcPath for ServerId<T>
 where
     T: Into<String> + Send,
 {

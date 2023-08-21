@@ -11,7 +11,7 @@ use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict};
+use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
 
 /// Socket permissions and ownership on UNIX
 pub struct SecurityAttributes {
@@ -54,7 +54,7 @@ impl IpcSecurity for SecurityAttributes {
     }
 }
 
-impl<T> IntoIpcPath for ConnectionId<T>
+impl<T> IntoIpcPath for ServerId<T>
 where
     T: Into<String> + Send,
 {

@@ -1,11 +1,11 @@
 use futures::StreamExt as _;
 use parity_tokio_ipc::{
-    ConnectionId, Endpoint, IpcEndpoint, IpcSecurity, OnConflict, SecurityAttributes,
+    Endpoint, IpcEndpoint, IpcSecurity, OnConflict, SecurityAttributes, ServerId,
 };
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
 async fn run_server(path: String) {
-    let mut endpoint = Endpoint::new(ConnectionId(path), OnConflict::Overwrite).unwrap();
+    let mut endpoint = Endpoint::new(ServerId(path), OnConflict::Overwrite).unwrap();
     endpoint.set_security_attributes(SecurityAttributes::allow_everyone_create().unwrap());
 
     let incoming = endpoint.incoming().expect("failed to open new socket");

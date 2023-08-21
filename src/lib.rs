@@ -52,12 +52,9 @@ pub trait IntoIpcPath: Send {
     fn into_ipc_path(self) -> PathBuf;
 }
 
-impl<T> IntoIpcPath for T
-where
-    T: Into<PathBuf> + Send,
-{
+impl IntoIpcPath for PathBuf {
     fn into_ipc_path(self) -> PathBuf {
-        self.into()
+        self
     }
 }
 
@@ -74,13 +71,12 @@ pub enum OnConflict {
 
 /// Cross-platform representation of an IPC connection
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConnectionId<T>(pub T)
+pub struct ServerId<T>(pub T)
 where
     T: Into<String> + Send;
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
     use std::time::Duration;
 
     use futures::channel::oneshot;
@@ -89,20 +85,15 @@ mod tests {
     use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
     use super::{Endpoint, SecurityAttributes};
-    use crate::{IpcEndpoint, IpcSecurity, OnConflict};
+    use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
 
-    fn dummy_endpoint() -> String {
+    fn dummy_endpoint() -> ServerId<String> {
         let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
-        if cfg!(windows) {
-            format!(r"\\.\pipe\my-pipe-{}", num)
-        } else {
-            format!(r"/tmp/my-uds-{}", num)
-        }
+        ServerId(format!("test-{num}"))
     }
 
-    async fn run_server(path: String) {
-        let path = path.to_owned();
-        let mut endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
+    async fn run_server(id: ServerId<String>) {
+        let mut endpoint = Endpoint::new(id, OnConflict::Overwrite).unwrap();
 
         endpoint.set_security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
         let incoming = endpoint.incoming().expect("failed to open up a new socket");
@@ -146,12 +137,12 @@ mod tests {
         tokio::time::sleep(Duration::from_secs(2)).await;
 
         println!("Connecting to client 0...");
-        let mut client_0 = Endpoint::connect(&path)
+        let mut client_0 = Endpoint::connect(path.clone())
             .await
             .expect("failed to open client_0");
         tokio::time::sleep(Duration::from_secs(2)).await;
         println!("Connecting to client 1...");
-        let mut client_1 = Endpoint::connect(&path)
+        let mut client_1 = Endpoint::connect(path.clone())
             .await
             .expect("failed to open client_1");
         let msg = b"hello";
@@ -183,9 +174,8 @@ mod tests {
         if let Ok(()) = shutdown_tx.send(()) {
             // wait one second for the file to be deleted.
             tokio::time::sleep(Duration::from_secs(1)).await;
-            let path = Path::new(&path);
-            // assert that it has
-            assert!(!path.exists());
+            // assert that it was
+            assert!(!path.into_ipc_path().exists());
         }
     }
 
