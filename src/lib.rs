@@ -15,26 +15,6 @@ use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 #[cfg(unix)]
 pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
-/// Endpoint for IPC transport
-///
-/// # Examples
-///
-/// ```no_run
-/// use futures::{future, Future, Stream, StreamExt};
-/// use parity_tokio_ipc::{Endpoint, IpcEndpoint, OnConflict};
-/// use tokio::runtime;
-///
-/// let mut runtime = runtime::Builder::new_current_thread().build().unwrap();
-/// let mut endpoint = Endpoint::new("path", OnConflict::Overwrite).unwrap();
-/// let server = endpoint
-///     .incoming()
-///     .expect("failed to open up a new pipe/socket")
-///     .for_each(|_stream| {
-///         println!("Connection received");
-///         futures::future::ready(())
-///     });
-/// runtime.block_on(server)
-/// ```
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 
