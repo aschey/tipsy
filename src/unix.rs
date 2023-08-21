@@ -62,7 +62,14 @@ where
         let sock_name = format!("{}.sock", self.0.into());
         #[cfg(target_os = "macos")]
         match dirs::home_dir() {
-            Some(home) => home.join(format!("Library/Caches/TemporaryItems/{sock_name}")),
+            Some(home) => {
+                let dir = home.join("Library/Caches/TemporaryItems");
+                if std::path::Path::from(dir).exists() {
+                    dir.join(sock_name)
+                } else {
+                    temp_dir().join(sock_name)
+                }
+            }
             None => temp_dir().join(sock_name),
         }
 
