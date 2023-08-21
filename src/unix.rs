@@ -11,7 +11,7 @@ use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
 
-use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity};
+use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict};
 
 /// Socket permissions and ownership on UNIX
 pub struct SecurityAttributes {
@@ -54,8 +54,12 @@ impl IpcSecurity for SecurityAttributes {
     }
 }
 
-impl IntoIpcPath for ConnectionId {
+impl<T> IntoIpcPath for ConnectionId<T>
+where
+    T: Into<String> + Send,
+{
     fn into_ipc_path(self) -> PathBuf {
+        let id = self.0.into();
         #[cfg(target_os = "macos")]
         match dirs::home_dir() {
             Some(home) => home.join(format!("Library/Caches/TemporaryItems/{}.sock", self.0)),
@@ -64,8 +68,8 @@ impl IntoIpcPath for ConnectionId {
 
         #[cfg(not(target_os = "macos"))]
         match dirs::runtime_dir() {
-            Some(runtime_dir) => runtime_dir.join(format!("{}.sock", self.0)),
-            None => temp_dir().join(format!("{}.sock", self.0)),
+            Some(runtime_dir) => runtime_dir.join(format!("{}.sock", id)),
+            None => temp_dir().join(format!("{}.sock", id)),
         }
     }
 }
@@ -101,7 +105,6 @@ impl Endpoint {
 
 #[async_trait]
 impl IpcEndpoint for Endpoint {
-    /// Stream of incoming connections
     fn incoming(self) -> io::Result<IpcStream> {
         let listener = self.inner()?;
         // the call to bind in `inner()` creates the file
@@ -114,28 +117,41 @@ impl IpcEndpoint for Endpoint {
         })
     }
 
-    /// Set security attributes for the connection
     fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
         self.security_attributes = security_attributes;
     }
 
-    /// Make new connection using the provided path and running event pool
     async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
         Ok(Connection::wrap(
             UnixStream::connect(path.into_ipc_path()).await?,
         ))
     }
-    /// Returns the path of the endpoint.
+
     fn path(&self) -> &Path {
         &self.path
     }
 
-    /// New IPC endpoint at the given path
-    fn new(endpoint: impl IntoIpcPath) -> Self {
-        Endpoint {
-            path: endpoint.into_ipc_path(),
-            security_attributes: SecurityAttributes::empty(),
+    fn new(endpoint: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self> {
+        let path = endpoint.into_ipc_path();
+        if std::path::Path::new(&path).exists() {
+            match on_conflict {
+                OnConflict::Error => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::AlreadyExists,
+                        format!("Unable to bind to {path:?} because the path already exists"),
+                    ));
+                }
+                OnConflict::Overwrite => {
+                    std::fs::remove_file(&path)?;
+                }
+                OnConflict::Ignore => {}
+            }
         }
+
+        Ok(Endpoint {
+            path,
+            security_attributes: SecurityAttributes::empty(),
+        })
     }
 }
 

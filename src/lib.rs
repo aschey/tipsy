@@ -40,7 +40,7 @@ pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 
 /// Endpoint trait shared by windows and unix implementations
 #[async_trait]
-pub trait IpcEndpoint: Send {
+pub trait IpcEndpoint: Send + Sized {
     /// Stream of incoming connections
     fn incoming(self) -> io::Result<IpcStream>;
     // fn incoming_messages(self) -> io::Result<IpcStream>;
@@ -52,7 +52,7 @@ pub trait IpcEndpoint: Send {
     async fn connect(path: impl IntoIpcPath) -> io::Result<Connection>;
     // async fn connect_messages(path: impl IntoIpcPath) -> io::Result<Connection>;
     /// New IPC endpoint at the given path
-    fn new(path: impl IntoIpcPath) -> Self;
+    fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self>;
 }
 
 /// Security trait used by windows and unix implementations
@@ -82,9 +82,22 @@ where
     }
 }
 
+/// How to proceed when the socket path already exists
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum OnConflict {
+    /// Ignore the conflicting socket and continue
+    Ignore,
+    /// Throw an error when attempting to bind to the path
+    Error,
+    /// Overwrite the existing socket
+    Overwrite,
+}
+
 /// Cross-platform representation of an IPC connection
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ConnectionId(pub String);
+pub struct ConnectionId<T>(pub T)
+where
+    T: Into<String> + Send;
 
 #[cfg(test)]
 mod tests {
@@ -97,7 +110,7 @@ mod tests {
     use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
     use super::{Endpoint, SecurityAttributes};
-    use crate::{IpcEndpoint, IpcSecurity};
+    use crate::{IpcEndpoint, IpcSecurity, OnConflict};
 
     fn dummy_endpoint() -> String {
         let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
@@ -110,7 +123,7 @@ mod tests {
 
     async fn run_server(path: String) {
         let path = path.to_owned();
-        let mut endpoint = Endpoint::new(path);
+        let mut endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
 
         endpoint.set_security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
         let incoming = endpoint.incoming().expect("failed to open up a new socket");
@@ -202,7 +215,7 @@ mod tests {
         fn is_static<T: 'static>(_: T) {}
 
         let path = dummy_endpoint();
-        let endpoint = Endpoint::new(path);
+        let endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
         is_static(endpoint.incoming());
     }
 

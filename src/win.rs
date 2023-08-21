@@ -17,7 +17,7 @@ use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::*;
 use windows_sys::Win32::System::SystemServices::*;
 
-use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity};
+use crate::{ConnectionId, IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict};
 
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
@@ -26,9 +26,12 @@ enum NamedPipe {
 
 const PIPE_AVAILABILITY_TIMEOUT: Duration = Duration::from_secs(5);
 
-impl IntoIpcPath for ConnectionId {
+impl<T> IntoIpcPath for ConnectionId<T>
+where
+    T: Into<String> + Send,
+{
     fn into_ipc_path(self) -> PathBuf {
-        PathBuf::from(format!(r"\\.\pipe\{}", self.0))
+        PathBuf::from(format!(r"\\.\pipe\{}", self.0.into()))
     }
 }
 
@@ -106,8 +109,7 @@ impl IpcEndpoint for Endpoint {
         Self::connect(path).await
     }
 
-    /// New IPC endpoint at the given path
-    fn new(path: impl IntoIpcPath) -> Self {
+    fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> Self {
         Endpoint {
             path: path.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
