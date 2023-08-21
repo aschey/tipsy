@@ -21,11 +21,11 @@ pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 ///
 /// ```no_run
 /// use futures::{future, Future, Stream, StreamExt};
-/// use parity_tokio_ipc::{Endpoint, IpcEndpoint};
+/// use parity_tokio_ipc::{Endpoint, IpcEndpoint, OnConflict};
 /// use tokio::runtime;
 ///
 /// let mut runtime = runtime::Builder::new_current_thread().build().unwrap();
-/// let mut endpoint = Endpoint::new("path");
+/// let mut endpoint = Endpoint::new("path", OnConflict::Overwrite).unwrap();
 /// let server = endpoint
 ///     .incoming()
 ///     .expect("failed to open up a new pipe/socket")
@@ -43,7 +43,6 @@ pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 pub trait IpcEndpoint: Send + Sized {
     /// Stream of incoming connections
     fn incoming(self) -> io::Result<IpcStream>;
-    // fn incoming_messages(self) -> io::Result<IpcStream>;
     /// Set security attributes for the connection
     fn set_security_attributes(&mut self, security_attributes: SecurityAttributes);
     /// Returns the path of the endpoint.
