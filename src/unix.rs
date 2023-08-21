@@ -64,7 +64,7 @@ where
         match dirs::home_dir() {
             Some(home) => {
                 let dir = home.join("Library/Caches/TemporaryItems");
-                if std::path::Path::from(dir).exists() {
+                if dir.exists() {
                     dir.join(sock_name)
                 } else {
                     temp_dir().join(sock_name)
