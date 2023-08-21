@@ -110,11 +110,11 @@ impl IpcEndpoint for Endpoint {
     }
 
     fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> io::Result<Self> {
-        Endpoint {
+        Ok(Endpoint {
             path: path.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
             created_listener: false,
-        }
+        })
     }
 }
 
