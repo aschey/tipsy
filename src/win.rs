@@ -109,7 +109,7 @@ impl IpcEndpoint for Endpoint {
         Self::connect(path).await
     }
 
-    fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> Self {
+    fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> io::Result<Self> {
         Endpoint {
             path: path.into_ipc_path(),
             security_attributes: SecurityAttributes::empty(),
