@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use async_trait::async_trait;
 use futures::Stream;
 use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -110,7 +109,6 @@ impl Endpoint {
     }
 }
 
-#[async_trait]
 impl IpcEndpoint for Endpoint {
     fn incoming(self) -> io::Result<IpcStream> {
         let listener = self.inner()?;

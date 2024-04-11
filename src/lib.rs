@@ -12,14 +12,14 @@ mod win;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use async_trait::async_trait;
+use futures::Future;
 #[cfg(unix)]
 pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 
 /// Endpoint trait shared by windows and unix implementations
-#[async_trait]
+
 pub trait IpcEndpoint: Send + Sized {
     /// Stream of incoming connections
     fn incoming(self) -> io::Result<IpcStream>;
@@ -28,7 +28,7 @@ pub trait IpcEndpoint: Send + Sized {
     /// Returns the path of the endpoint.
     fn path(&self) -> &Path;
     /// Make new connection using the provided path and running event pool.
-    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection>;
+    fn connect(path: impl IntoIpcPath) -> impl Future<Output = io::Result<Connection>> + Send;
     // async fn connect_messages(path: impl IntoIpcPath) -> io::Result<Connection>;
     /// New IPC endpoint at the given path
     fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self>;

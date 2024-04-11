@@ -4,7 +4,6 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use std::{io, marker, mem, ptr};
 
-use async_trait::async_trait;
 use futures::{Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::windows::named_pipe::{self, PipeMode};
@@ -91,7 +90,6 @@ impl Endpoint {
     }
 }
 
-#[async_trait]
 impl IpcEndpoint for Endpoint {
     fn incoming(self) -> io::Result<IpcStream> {
         IpcStream::new(self)

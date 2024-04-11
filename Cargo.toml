@@ -12,7 +12,6 @@ Interprocess communication library for tokio.
 """
 
 [dependencies]
-async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1.23.1", features = ["net", "time"] }
 tracing = "0.1"
@@ -22,7 +21,7 @@ libc = "0.2.65"
 dirs = "5"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.48", features = [
+windows-sys = { version = "0.52", features = [
     "Win32_Foundation",
     "Win32_Security",
     "Win32_System_SystemServices",
@@ -32,5 +31,5 @@ windows-sys = { version = "0.48", features = [
 ] }
 
 [dev-dependencies]
-tokio = { version = "1.32.0", features = ["io-util", "rt", "time", "macros"] }
+tokio = { version = "1.37.0", features = ["io-util", "rt", "time", "macros"] }
 rand = "0.8.5"
