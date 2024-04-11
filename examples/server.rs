@@ -25,7 +25,7 @@ async fn run_server(path: String) {
                             break;
                         }
                         if let Ok("ping") = std::str::from_utf8(&buf[..]) {
-                            println!("RECIEVED: PING");
+                            println!("RECEIVED: PING");
                             writer
                                 .write_all(b"pong")
                                 .await

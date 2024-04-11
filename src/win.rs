@@ -6,15 +6,23 @@ use std::{io, marker, mem, ptr};
 
 use futures::{Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::net::windows::named_pipe::{self, PipeMode};
+use tokio::net::windows::named_pipe;
 use windows_sys::Win32::Foundation::{
-    ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, PSID,
+    LocalFree, ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, HLOCAL, PSID,
 };
-use windows_sys::Win32::Security::Authorization::*;
-use windows_sys::Win32::Security::*;
+use windows_sys::Win32::Security::Authorization::{
+    SetEntriesInAclW, ACCESS_MODE, EXPLICIT_ACCESS_W, SET_ACCESS, TRUSTEE_IS_SID,
+    TRUSTEE_IS_WELL_KNOWN_GROUP, TRUSTEE_TYPE,
+};
+use windows_sys::Win32::Security::{
+    AllocateAndInitializeSid, FreeSid, InitializeSecurityDescriptor, SetSecurityDescriptorDacl,
+    ACL, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, SID_IDENTIFIER_AUTHORITY,
+};
 use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
-use windows_sys::Win32::System::Memory::*;
-use windows_sys::Win32::System::SystemServices::*;
+use windows_sys::Win32::System::Memory::{LocalAlloc, LPTR};
+use windows_sys::Win32::System::SystemServices::{
+    SECURITY_DESCRIPTOR_REVISION, SECURITY_WORLD_RID,
+};
 
 use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
 
@@ -379,7 +387,7 @@ impl Acl {
 impl Drop for Acl {
     fn drop(&mut self) {
         if !self.acl_ptr.is_null() {
-            unsafe { LocalFree(self.acl_ptr as isize) };
+            unsafe { LocalFree(self.acl_ptr as HLOCAL) };
         }
     }
 }
@@ -426,7 +434,7 @@ impl SecurityDescriptor {
 impl Drop for SecurityDescriptor {
     fn drop(&mut self) {
         if !self.descriptor_ptr.is_null() {
-            unsafe { LocalFree(self.descriptor_ptr as isize) };
+            unsafe { LocalFree(self.descriptor_ptr as HLOCAL) };
             self.descriptor_ptr = ptr::null_mut();
         }
     }
