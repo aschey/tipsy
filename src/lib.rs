@@ -197,8 +197,7 @@ mod tests {
         is_static(endpoint.incoming());
     }
 
-    #[cfg(windows)]
-    fn create_pipe_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
+    fn create_endpoint_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
         let path = dummy_endpoint("test");
 
         let mut endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
@@ -206,14 +205,13 @@ mod tests {
         endpoint.incoming().map(|_| ())
     }
 
-    #[cfg(windows)]
     #[tokio::test]
-    async fn test_pipe_permissions() {
-        create_pipe_with_permissions(SecurityAttributes::empty())
+    async fn test_endpoint_permissions() {
+        create_endpoint_with_permissions(SecurityAttributes::empty())
             .expect("failed with no attributes");
-        create_pipe_with_permissions(SecurityAttributes::allow_everyone_create().unwrap())
+        create_endpoint_with_permissions(SecurityAttributes::allow_everyone_create().unwrap())
             .expect("failed with attributes for creating");
-        create_pipe_with_permissions(
+        create_endpoint_with_permissions(
             SecurityAttributes::empty()
                 .allow_everyone_connect()
                 .unwrap(),
