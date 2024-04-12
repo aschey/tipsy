@@ -61,7 +61,7 @@ where
     fn into_ipc_path(self) -> io::Result<PathBuf> {
         let sock_name = format!("{}.sock", self.0.into());
         #[cfg(target_os = "macos")]
-        let pat = match dirs::home_dir() {
+        let path = match dirs::home_dir() {
             Some(home) => {
                 let dir = home.join("Library/Caches/TemporaryItems");
                 if dir.exists() {
