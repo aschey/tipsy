@@ -87,9 +87,9 @@ mod tests {
     use super::{Endpoint, SecurityAttributes};
     use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
 
-    fn dummy_endpoint() -> ServerId<String> {
+    fn dummy_endpoint(base: &str) -> ServerId<String> {
         let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
-        ServerId(format!("test-{num}"))
+        ServerId(format!("{base}-{num}"))
     }
 
     async fn run_server(id: ServerId<String>) {
@@ -119,8 +119,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn smoke_test() {
-        let path = dummy_endpoint();
+    async fn smoke_test_single_id() {
+        smoke_test("test").await
+    }
+
+    #[tokio::test]
+    async fn smoke_test_nested_path() {
+        smoke_test("test/test1").await
+    }
+
+    async fn smoke_test(base: &str) {
+        let path = dummy_endpoint(base);
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
         let server = select(Box::pin(run_server(path.clone())), shutdown_rx).then(|either| {
@@ -183,7 +192,7 @@ mod tests {
     async fn incoming_stream_is_static() {
         fn is_static<T: 'static>(_: T) {}
 
-        let path = dummy_endpoint();
+        let path = dummy_endpoint("test");
         let endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
         is_static(endpoint.incoming());
     }
