@@ -38,7 +38,10 @@ where
     T: Into<String> + Send,
 {
     fn into_ipc_path(self) -> io::Result<PathBuf> {
-        Ok(PathBuf::from(format!(r"\\.\pipe\{}", self.0.into())))
+        Ok(PathBuf::from(format!(
+            r"\\.\pipe\{}",
+            self.0.into().replace('/', "\\")
+        )))
     }
 }
 
