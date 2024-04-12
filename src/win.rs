@@ -37,8 +37,8 @@ impl<T> IntoIpcPath for ServerId<T>
 where
     T: Into<String> + Send,
 {
-    fn into_ipc_path(self) -> PathBuf {
-        PathBuf::from(format!(r"\\.\pipe\{}", self.0.into()))
+    fn into_ipc_path(self) -> io::Result<PathBuf> {
+        Ok(PathBuf::from(format!(r"\\.\pipe\{}", self.0.into())))
     }
 }
 
@@ -70,7 +70,7 @@ impl Endpoint {
     }
 
     async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
-        let path = path.into_ipc_path();
+        let path = path.into_ipc_path()?;
 
         // There is not async equivalent of waiting for a named pipe in Windows,
         // so we keep trying or sleeping for a bit, until we hit a timeout
@@ -117,7 +117,7 @@ impl IpcEndpoint for Endpoint {
 
     fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> io::Result<Self> {
         Ok(Endpoint {
-            path: path.into_ipc_path(),
+            path: path.into_ipc_path()?,
             security_attributes: SecurityAttributes::empty(),
             created_listener: false,
         })

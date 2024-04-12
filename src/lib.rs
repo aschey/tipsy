@@ -49,12 +49,12 @@ pub trait IpcSecurity: Send + Sized {
 /// Trait representing a path used for an IPC client or server
 pub trait IntoIpcPath: Send {
     /// Convert the object into an IPC path
-    fn into_ipc_path(self) -> PathBuf;
+    fn into_ipc_path(self) -> io::Result<PathBuf>;
 }
 
 impl IntoIpcPath for PathBuf {
-    fn into_ipc_path(self) -> PathBuf {
-        self
+    fn into_ipc_path(self) -> io::Result<PathBuf> {
+        Ok(self)
     }
 }
 
@@ -175,7 +175,7 @@ mod tests {
             // wait one second for the file to be deleted.
             tokio::time::sleep(Duration::from_secs(1)).await;
             // assert that it was
-            assert!(!path.into_ipc_path().exists());
+            assert!(!path.into_ipc_path().unwrap().exists());
         }
     }
 

@@ -1,5 +1,6 @@
 use std::env::temp_dir;
 use std::ffi::CString;
+use std::fs;
 use std::io::{self, Error};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -57,10 +58,10 @@ impl<T> IntoIpcPath for ServerId<T>
 where
     T: Into<String> + Send,
 {
-    fn into_ipc_path(self) -> PathBuf {
+    fn into_ipc_path(self) -> io::Result<PathBuf> {
         let sock_name = format!("{}.sock", self.0.into());
         #[cfg(target_os = "macos")]
-        match dirs::home_dir() {
+        let pat = match dirs::home_dir() {
             Some(home) => {
                 let dir = home.join("Library/Caches/TemporaryItems");
                 if dir.exists() {
@@ -70,13 +71,17 @@ where
                 }
             }
             None => temp_dir().join(sock_name),
-        }
+        };
 
         #[cfg(not(target_os = "macos"))]
-        match dirs::runtime_dir() {
+        let path = match dirs::runtime_dir() {
             Some(runtime_dir) => runtime_dir.join(sock_name),
             None => temp_dir().join(sock_name),
+        };
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
         }
+        Ok(path)
     }
 }
 
@@ -128,7 +133,7 @@ impl IpcEndpoint for Endpoint {
 
     async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
         Ok(Connection::wrap(
-            UnixStream::connect(path.into_ipc_path()).await?,
+            UnixStream::connect(path.into_ipc_path()?).await?,
         ))
     }
 
@@ -137,7 +142,7 @@ impl IpcEndpoint for Endpoint {
     }
 
     fn new(endpoint: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self> {
-        let path = endpoint.into_ipc_path();
+        let path = endpoint.into_ipc_path()?;
         if std::path::Path::new(&path).exists() {
             match on_conflict {
                 OnConflict::Error => {
@@ -147,7 +152,7 @@ impl IpcEndpoint for Endpoint {
                     ));
                 }
                 OnConflict::Overwrite => {
-                    std::fs::remove_file(&path)?;
+                    fs::remove_file(&path)?;
                 }
                 OnConflict::Ignore => {}
             }
@@ -182,7 +187,6 @@ impl Stream for IpcStream {
 
 impl Drop for IpcStream {
     fn drop(&mut self) {
-        use std::fs;
         if let Some(path) = &self.path {
             if let Ok(()) = fs::remove_file(path) {
                 tracing::trace!("Removed socket file at: {:?}", path)
