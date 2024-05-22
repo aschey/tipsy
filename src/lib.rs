@@ -57,7 +57,7 @@ pub trait IpcSecurity: Send + Sized {
 
 /// Trait representing a path used for an IPC client or server
 pub trait IntoIpcPath: Send {
-    /// Convert the object into an IPC path
+    /// Converts the object into an IPC path
     fn into_ipc_path(self) -> io::Result<PathBuf>;
 }
 
@@ -78,7 +78,17 @@ pub enum OnConflict {
     Overwrite,
 }
 
-/// Cross-platform representation of an IPC connection
+/// Cross-platform representation of an IPC connection path
+///
+/// Calling [`IntoIpcPath::into_ipc_path`] on this struct will generate a platform-specific IPC
+/// path.
+///
+/// Windows: `\\.\pipe\{serverId}`
+///
+/// Mac: `$HOME/Library/Caches/TemporaryItems/{serverId}` (defaults to tmp if this directory does
+/// not exist)
+///
+/// Linux: `$XDG_RUNTIME_DIR/{serverId}`
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerId<T>(pub T)
 where

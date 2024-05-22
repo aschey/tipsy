@@ -21,7 +21,7 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    Endpoint::new(ServerId("id"), OnConflict::Overwrite)?
+    Endpoint::new(ServerId("my-server"), OnConflict::Overwrite)?
         .incoming()?
         .for_each(|conn| async {
             match conn {
@@ -42,7 +42,16 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut client = Endpoint::connect(ServerId("id")).await?;
+    let mut client = Endpoint::connect(ServerId("my-server")).await?;
     client.write_all(b"ping").await?;
     Ok(())
 }
+```
+
+## Examples
+
+See [examples](https://github.com/aschey/tipsy/tree/main/examples).
+
+## Supported Rust Versions
+
+The MSRV is currently `1.75.0`.
