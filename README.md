@@ -1,7 +1,10 @@
-# parity-tokio-ipc
+# tipsy
 
-[![CI](https://github.com/paritytech/parity-tokio-ipc/actions/workflows/ci.yml/badge.svg)](https://github.com/paritytech/parity-tokio-ipc/actions/workflows/ci.yml)
-[![Documentation](https://docs.rs/parity-tokio-ipc/badge.svg)](https://docs.rs/parity-tokio-ipc)
+[![Dependency Status](https://deps.rs/repo/github/aschey/tipsy/status.svg?style=flat-square)](https://deps.rs/repo/github/aschey/tipsy)
+![license](https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg)
+[![CI](https://github.com/aschey/tipsy/actions/workflows/ci.yml/badge.svg)](https://github.com/aschey/tipsy/actions/workflows/ci.yml)
+![GitHub repo size](https://img.shields.io/github/repo-size/aschey/tipsy)
+![Lines of Code](https://aschey.tech/tokei/github/aschey/tipsy)
 
 This crate abstracts interprocess transport for UNIX/Windows.
 
