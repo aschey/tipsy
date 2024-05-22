@@ -10,6 +10,7 @@ use futures::Stream;
 use libc::chmod;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
+use tracing::trace;
 
 use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
 
@@ -36,7 +37,7 @@ impl SecurityAttributes {
 
 impl IpcSecurity for SecurityAttributes {
     fn empty() -> Self {
-        SecurityAttributes { mode: Some(0o600) }
+        Self { mode: Some(0o600) }
     }
 
     fn allow_everyone_connect(mut self) -> io::Result<Self> {
@@ -50,7 +51,7 @@ impl IpcSecurity for SecurityAttributes {
     }
 
     fn allow_everyone_create() -> io::Result<Self> {
-        Ok(SecurityAttributes { mode: None })
+        Ok(Self { mode: None })
     }
 }
 
@@ -92,7 +93,7 @@ pub struct Endpoint {
 }
 
 impl Endpoint {
-    /// Create a listener from an existing [UnixListener](std::os::unix::net::UnixListener)
+    /// Create a listener from an existing [`UnixListener`](std::os::unix::net::UnixListener)
     pub fn from_std_listener(listener: std::os::unix::net::UnixListener) -> io::Result<IpcStream> {
         listener.set_nonblocking(true)?;
         let listener = UnixListener::from_std(listener)?;
@@ -107,7 +108,7 @@ impl Endpoint {
         UnixListener::bind(&self.path)
     }
 
-    /// Create a stream from an existing [UnixStream](std::os::unix::net::UnixStream)
+    /// Create a stream from an existing [`UnixStream`](std::os::unix::net::UnixStream)
     pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Connection> {
         stream.set_nonblocking(true)?;
         Ok(Connection::wrap(UnixStream::from_std(stream)?))
@@ -158,7 +159,7 @@ impl IpcEndpoint for Endpoint {
             }
         }
 
-        Ok(Endpoint {
+        Ok(Self {
             path,
             security_attributes: SecurityAttributes::empty(),
         })
@@ -189,7 +190,7 @@ impl Drop for IpcStream {
     fn drop(&mut self) {
         if let Some(path) = &self.path {
             if let Ok(()) = fs::remove_file(path) {
-                tracing::trace!("Removed socket file at: {:?}", path)
+                trace!("Removed socket file at: {:?}", path);
             }
         }
     }

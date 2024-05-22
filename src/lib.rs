@@ -1,8 +1,18 @@
 //! Tokio IPC transport. Under the hood uses Unix Domain Sockets for Linux/Mac
 //! and Named Pipes for Windows.
 
+#![deny(missing_docs)]
+#![forbid(clippy::unwrap_used)]
+#![deny(rustdoc::broken_intra_doc_links)]
+#![warn(clippy::semicolon_if_nothing_returned)]
+#![warn(clippy::doc_markdown)]
+#![warn(clippy::default_trait_access)]
+#![warn(clippy::ignored_unit_patterns)]
+#![warn(clippy::semicolon_if_nothing_returned)]
+#![warn(clippy::missing_fields_in_debug)]
+#![warn(clippy::use_self)]
+#![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc = include_str!("../README.md")]
-#![warn(missing_docs)]
 
 #[cfg(not(windows))]
 mod unix;
@@ -74,148 +84,3 @@ pub enum OnConflict {
 pub struct ServerId<T>(pub T)
 where
     T: Into<String> + Send;
-
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
-
-    use futures::channel::oneshot;
-    use futures::future::{ready, select, Either};
-    use futures::{FutureExt as _, StreamExt as _};
-    use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
-
-    use super::{Endpoint, SecurityAttributes};
-    use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
-
-    fn dummy_endpoint(base: &str) -> ServerId<String> {
-        let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
-        ServerId(format!("{base}-{num}"))
-    }
-
-    async fn run_server(id: ServerId<String>) {
-        let mut endpoint = Endpoint::new(id, OnConflict::Overwrite).unwrap();
-
-        endpoint.set_security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
-        let incoming = endpoint.incoming().expect("failed to open up a new socket");
-        futures::pin_mut!(incoming);
-
-        while let Some(result) = incoming.next().await {
-            match result {
-                Ok(stream) => {
-                    let (mut reader, mut writer) = split(stream);
-                    let mut buf = [0u8; 5];
-                    reader
-                        .read_exact(&mut buf)
-                        .await
-                        .expect("unable to read from socket");
-                    writer
-                        .write_all(&buf[..])
-                        .await
-                        .expect("unable to write to socket");
-                }
-                _ => unreachable!("ideally"),
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn smoke_test_single_id() {
-        smoke_test("test").await
-    }
-
-    #[tokio::test]
-    async fn smoke_test_nested_path() {
-        smoke_test("test/test1").await
-    }
-
-    async fn smoke_test(base: &str) {
-        let path = dummy_endpoint(base);
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-        let server = select(Box::pin(run_server(path.clone())), shutdown_rx).then(|either| {
-            match either {
-                Either::Right((_, server)) => {
-                    drop(server);
-                }
-                _ => unreachable!("also ideally"),
-            };
-            ready(())
-        });
-        tokio::spawn(server);
-
-        tokio::time::sleep(Duration::from_secs(2)).await;
-
-        println!("Connecting to client 0...");
-        let mut client_0 = Endpoint::connect(path.clone())
-            .await
-            .expect("failed to open client_0");
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        println!("Connecting to client 1...");
-        let mut client_1 = Endpoint::connect(path.clone())
-            .await
-            .expect("failed to open client_1");
-        let msg = b"hello";
-
-        let mut rx_buf = vec![0u8; msg.len()];
-        client_0
-            .write_all(msg)
-            .await
-            .expect("Unable to write message to client");
-        client_0
-            .read_exact(&mut rx_buf)
-            .await
-            .expect("Unable to read message from client");
-
-        let mut rx_buf2 = vec![0u8; msg.len()];
-        client_1
-            .write_all(msg)
-            .await
-            .expect("Unable to write message to client");
-        client_1
-            .read_exact(&mut rx_buf2)
-            .await
-            .expect("Unable to read message from client");
-
-        assert_eq!(rx_buf, msg);
-        assert_eq!(rx_buf2, msg);
-
-        // shutdown server
-        if let Ok(()) = shutdown_tx.send(()) {
-            // wait one second for the file to be deleted.
-            tokio::time::sleep(Duration::from_secs(1)).await;
-            // assert that it was
-            assert!(!path.into_ipc_path().unwrap().exists());
-        }
-    }
-
-    #[tokio::test]
-    async fn incoming_stream_is_static() {
-        fn is_static<T: 'static>(_: T) {}
-
-        let path = dummy_endpoint("test");
-        let endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
-        is_static(endpoint.incoming());
-    }
-
-    fn create_endpoint_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
-        let path = dummy_endpoint("test");
-
-        let mut endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
-        endpoint.set_security_attributes(attr);
-        endpoint.incoming().map(|_| ())
-    }
-
-    #[tokio::test]
-    async fn test_endpoint_permissions() {
-        create_endpoint_with_permissions(SecurityAttributes::empty())
-            .expect("failed with no attributes");
-        create_endpoint_with_permissions(SecurityAttributes::allow_everyone_create().unwrap())
-            .expect("failed with attributes for creating");
-        create_endpoint_with_permissions(
-            SecurityAttributes::empty()
-                .allow_everyone_connect()
-                .unwrap(),
-        )
-        .expect("failed with attributes for connecting");
-    }
-}

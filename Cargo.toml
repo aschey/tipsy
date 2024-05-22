@@ -1,15 +1,17 @@
 [package]
-name = "parity-tokio-ipc"
-version = "0.9.0"
+name = "tipsy"
+version = "0.1.0"
+rust-version = "1.75.0"
 edition = "2021"
-authors = ["NikVolf <nikvolf@gmail.com>"]
+authors = ["Austin Schey <aschey13@gmail.com>"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
-repository = "https://github.com/paritytech/parity-tokio-ipc"
-homepage = "https://github.com/paritytech/parity-tokio-ipc"
-description = """
-Interprocess communication library for tokio.
-"""
+repository = "https://github.com/aschey/tipsy"
+homepage = "https://github.com/aschey/tipsy"
+keywords = ["tokio", "ipc"]
+categories = ["asynchronous", "network-programming"]
+description = "Cross-platform IPC for Tokio"
+include = ["/src", "/examples", "/tests"]
 
 [dependencies]
 futures = "0.3"

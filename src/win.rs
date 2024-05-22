@@ -487,23 +487,3 @@ impl InnerAttributes {
         &mut self.attrs
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::SecurityAttributes;
-    use crate::IpcSecurity;
-
-    #[test]
-    fn test_allow_everyone_everything() {
-        SecurityAttributes::allow_everyone_create()
-            .expect("failed to create security attributes that allow everyone to create a pipe");
-    }
-
-    #[test]
-    fn test_allow_eveyone_read_write() {
-        SecurityAttributes::empty().allow_everyone_connect().expect(
-            "failed to create security attributes that allow everyone to read and write to/from a \
-             pipe",
-        );
-    }
-}

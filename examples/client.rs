@@ -1,4 +1,4 @@
-use parity_tokio_ipc::{Endpoint, IpcEndpoint, ServerId};
+use tipsy::{Endpoint, IpcEndpoint, ServerId};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main(flavor = "current_thread")]
