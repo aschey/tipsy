@@ -1,5 +1,4 @@
 use std::io;
-use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
 use futures::channel::oneshot;
@@ -136,7 +135,10 @@ async fn std_listener_stream() {
         }
     });
 
-    run_clients(|| Endpoint::from_std_stream(UnixStream::connect(path.clone()).unwrap())).await;
+    run_clients(|| {
+        Endpoint::from_std_stream(std::os::unix::net::UnixStream::connect(path.clone()).unwrap())
+    })
+    .await;
     let _ = shutdown_tx.send(());
 }
 
