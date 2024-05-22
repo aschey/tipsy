@@ -38,7 +38,7 @@ async fn run_server(path: String) {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() {
     let path = std::env::args()
         .nth(1)

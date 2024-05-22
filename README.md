@@ -6,37 +6,43 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/aschey/tipsy)
 ![Lines of Code](https://aschey.tech/tokei/github/aschey/tipsy)
 
-This crate abstracts interprocess transport for UNIX/Windows.
+This is a fork of [parity-tokio-ipc](https://github.com/paritytech/parity-tokio-ipc).
 
-It utilizes unix sockets on UNIX (via `tokio::net::UnixStream`) and named pipes on windows (via `tokio::net::windows::named_pipe` module).
+[tipsy](https://github.com/aschey/tipsy) is a library for cross-platform async IPC using Tokio.
+It utilizes unix sockets on UNIX (via [`tokio::net::UnixStream`](https://docs.rs/tokio/latest/tokio/net/struct.UnixStream.html))
+and named pipes on windows (via [`tokio::net::windows::named_pipe`](https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/index.html)).
 
-Endpoint is transport-agnostic interface for incoming connections:
+## Server
 
 ```rust,no_run
 use tipsy::{Endpoint, IpcEndpoint, OnConflict, ServerId};
 use futures::stream::StreamExt;
+use std::error::Error;
 
-let server = async move {
-    Endpoint::new(ServerId("id"), OnConflict::Overwrite)
-        .unwrap()
-        .incoming()
-        .expect("Couldn't set up server")
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    Endpoint::new(ServerId("id"), OnConflict::Overwrite)?
+        .incoming()?
         .for_each(|conn| async {
             match conn {
                 Ok(stream) => println!("Got connection!"),
                 Err(e) => eprintln!("Error when receiving connection: {:?}", e),
             }
         });
-};
-
-let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-rt.block_on(server);
+    Ok(())
+}
 ```
 
-## License
+## Client
 
-`parity-tokio-ipc` is primarily distributed under the terms of both the MIT
-license and the Apache License (Version 2.0), with portions covered by various
-BSD-like licenses.
+```rust,no_run
+use tipsy::{Endpoint, IpcEndpoint, ServerId};
+use tokio::io::AsyncWriteExt;
+use std::error::Error;
 
-See LICENSE-APACHE, and LICENSE-MIT for details.
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let mut client = Endpoint::connect(ServerId("id")).await?;
+    client.write_all(b"ping").await?;
+    Ok(())
+}

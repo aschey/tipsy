@@ -1,7 +1,7 @@
 use tipsy::{Endpoint, IpcEndpoint, ServerId};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() {
     let path = std::env::args()
         .nth(1)

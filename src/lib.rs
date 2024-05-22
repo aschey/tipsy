@@ -28,8 +28,7 @@ pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
 #[cfg(windows)]
 pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 
-/// Endpoint trait shared by windows and unix implementations
-
+/// Endpoint trait shared by Windows and Unix implementations
 pub trait IpcEndpoint: Send + Sized {
     /// Stream of incoming connections
     fn incoming(self) -> io::Result<IpcStream>;
@@ -44,7 +43,7 @@ pub trait IpcEndpoint: Send + Sized {
     fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self>;
 }
 
-/// Security trait used by windows and unix implementations
+/// Security trait used by Windows and Unix implementations
 pub trait IpcSecurity: Send + Sized {
     /// New default security attributes.
     fn empty() -> Self;

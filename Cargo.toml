@@ -33,5 +33,18 @@ windows-sys = { version = "0.52", features = [
 ] }
 
 [dev-dependencies]
-tokio = { version = "1.37.0", features = ["io-util", "rt", "time", "macros"] }
+tokio = { version = "1.37.0", features = [
+    "io-util",
+    "rt-multi-thread",
+    "time",
+    "macros",
+] }
 rand = "0.8.5"
+
+[[example]]
+name = "client"
+doc-scrape-examples = true
+
+[[example]]
+name = "server"
+doc-scrape-examples = true
