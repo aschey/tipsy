@@ -255,7 +255,7 @@ impl IpcSecurity for SecurityAttributes {
         let attributes = Some(InnerAttributes::allow_everyone(
             GENERIC_READ | FILE_WRITE_DATA,
         )?);
-        Ok(SecurityAttributes { attributes })
+        Ok(Self { attributes })
     }
 
     fn set_mode(self, _mode: u16) -> io::Result<Self> {

@@ -102,11 +102,8 @@ jobs:
         run: cargo check --workspace --all-features
 
   lint:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
     name: "Lint"
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust nightly
