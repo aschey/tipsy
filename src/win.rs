@@ -119,7 +119,7 @@ impl IpcEndpoint for Endpoint {
     }
 
     fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> io::Result<Self> {
-        Ok(Endpoint {
+        Ok(Self {
             path: path.into_ipc_path()?,
             security_attributes: SecurityAttributes::empty(),
             created_listener: false,
@@ -247,7 +247,7 @@ impl SecurityAttributes {
 }
 
 impl IpcSecurity for SecurityAttributes {
-    fn empty() -> SecurityAttributes {
+    fn empty() -> Self {
         DEFAULT_SECURITY_ATTRIBUTES
     }
 
@@ -263,11 +263,11 @@ impl IpcSecurity for SecurityAttributes {
         Ok(self)
     }
 
-    fn allow_everyone_create() -> io::Result<SecurityAttributes> {
+    fn allow_everyone_create() -> io::Result<Self> {
         let attributes = Some(InnerAttributes::allow_everyone(
             GENERIC_READ | GENERIC_WRITE,
         )?);
-        Ok(SecurityAttributes { attributes })
+        Ok(Self { attributes })
     }
 }
 
@@ -278,7 +278,7 @@ struct Sid {
 }
 
 impl Sid {
-    fn everyone_sid() -> io::Result<Sid> {
+    fn everyone_sid() -> io::Result<Self> {
         let mut sid_ptr = ptr::null_mut();
         let world_sid_authority = SID_IDENTIFIER_AUTHORITY {
             Value: [0, 0, 0, 0, 0, 1],
@@ -301,7 +301,7 @@ impl Sid {
         if result == 0 {
             Err(io::Error::last_os_error())
         } else {
-            Ok(Sid { sid_ptr })
+            Ok(Self { sid_ptr })
         }
     }
 
@@ -360,11 +360,11 @@ struct Acl {
 }
 
 impl Acl {
-    fn empty() -> io::Result<Acl> {
+    fn empty() -> io::Result<Self> {
         Self::new(&mut [])
     }
 
-    fn new(entries: &mut [AceWithSid<'_>]) -> io::Result<Acl> {
+    fn new(entries: &mut [AceWithSid<'_>]) -> io::Result<Self> {
         let mut acl_ptr = ptr::null_mut();
         let result = unsafe {
             SetEntriesInAclW(
@@ -379,7 +379,7 @@ impl Acl {
             return Err(io::Error::from_raw_os_error(result as i32));
         }
 
-        Ok(Acl { acl_ptr })
+        Ok(Self { acl_ptr })
     }
 
     unsafe fn as_ptr(&self) -> *const ACL {
@@ -416,7 +416,7 @@ impl SecurityDescriptor {
             return Err(io::Error::last_os_error());
         };
 
-        Ok(SecurityDescriptor { descriptor_ptr })
+        Ok(Self { descriptor_ptr })
     }
 
     fn set_dacl(&mut self, acl: &Acl) -> io::Result<()> {
@@ -450,7 +450,7 @@ struct InnerAttributes {
 }
 
 impl InnerAttributes {
-    fn empty() -> io::Result<InnerAttributes> {
+    fn empty() -> io::Result<Self> {
         let descriptor = SecurityDescriptor::new()?;
         let mut attrs = unsafe { mem::zeroed::<SECURITY_ATTRIBUTES>() };
         attrs.nLength = mem::size_of::<SECURITY_ATTRIBUTES>() as u32;
@@ -459,14 +459,14 @@ impl InnerAttributes {
 
         let acl = Acl::empty().expect("this should never fail");
 
-        Ok(InnerAttributes {
+        Ok(Self {
             acl,
             descriptor,
             attrs,
         })
     }
 
-    fn allow_everyone(permissions: u32) -> io::Result<InnerAttributes> {
+    fn allow_everyone(permissions: u32) -> io::Result<Self> {
         let mut attributes = Self::empty()?;
         let sid = Sid::everyone_sid()?;
 
