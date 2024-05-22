@@ -92,6 +92,8 @@ async fn nested_path() {
     smoke_test(endpoint).await;
 }
 
+// Windows named paths don't exist in the filesystem so this test is only valid on Unix
+#[cfg(unix)]
 #[tokio::test]
 async fn error_on_path_exists() {
     let path = dummy_endpoint("test");
