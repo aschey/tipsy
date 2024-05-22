@@ -26,6 +26,8 @@ impl SecurityAttributes {
     fn apply_permissions(&self, path: &str) -> io::Result<()> {
         if let Some(mode) = self.mode {
             let path = CString::new(path)?;
+            // mode_t doesn't need into() on mac but does on linux
+            #[allow(clippy::useless_conversion)]
             if unsafe { chmod(path.as_ptr(), mode.into()) } == -1 {
                 return Err(Error::last_os_error());
             }
