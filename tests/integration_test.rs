@@ -121,6 +121,7 @@ async fn ok_on_path_overwrite() {
     assert!(Endpoint::new(path, OnConflict::Overwrite).is_ok());
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn std_listener_stream() {
     let path = dummy_endpoint("test").into_ipc_path().unwrap();
@@ -136,24 +137,6 @@ async fn std_listener_stream() {
     });
 
     run_clients(|| Endpoint::from_std_stream(UnixStream::connect(path.clone()).unwrap())).await;
-    let _ = shutdown_tx.send(());
-}
-
-#[tokio::test]
-async fn from_std_stream() {
-    let path = dummy_endpoint("test").into_ipc_path().unwrap();
-    let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
-    let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-    let incoming = Endpoint::from_std_listener(listener).unwrap();
-    tokio::spawn(async move {
-        tokio::select! {
-            _ = run_stream(incoming) => {},
-            _ = shutdown_rx => {}
-        }
-    });
-
-    run_clients(|| Endpoint::connect(path.clone())).await;
     let _ = shutdown_tx.send(());
 }
 
