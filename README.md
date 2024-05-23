@@ -5,6 +5,7 @@
 [![Dependency Status](https://deps.rs/repo/github/aschey/tipsy/status.svg?style=flat-square)](https://deps.rs/repo/github/aschey/tipsy)
 ![license](https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg)
 [![CI](https://github.com/aschey/tipsy/actions/workflows/ci.yml/badge.svg)](https://github.com/aschey/tipsy/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/aschey/tipsy/graph/badge.svg?token=K2EoTKsGFA)](https://codecov.io/gh/aschey/tipsy)
 ![GitHub repo size](https://img.shields.io/github/repo-size/aschey/tipsy)
 ![Lines of Code](https://aschey.tech/tokei/github/aschey/tipsy)
 
