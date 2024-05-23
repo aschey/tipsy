@@ -33,11 +33,11 @@ enum NamedPipe {
 
 const PIPE_AVAILABILITY_TIMEOUT: Duration = Duration::from_secs(5);
 
-impl<T> IntoIpcPath for ServerId<T>
+impl<T> ServerId<T>
 where
     T: Into<String> + Send,
 {
-    fn into_ipc_path(self) -> io::Result<PathBuf> {
+    pub(crate) fn into_ipc_path(self) -> io::Result<PathBuf> {
         Ok(PathBuf::from(format!(
             r"\\.\pipe\{}",
             self.0.into().replace('/', "\\")

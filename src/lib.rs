@@ -75,6 +75,15 @@ pub struct ServerId<T>(pub T)
 where
     T: Into<String> + Send;
 
+impl<T> IntoIpcPath for ServerId<T>
+where
+    T: Into<String> + Send,
+{
+    fn into_ipc_path(self) -> io::Result<PathBuf> {
+        self.into_ipc_path()
+    }
+}
+
 /// Permissions and ownership for the IPC connection
 pub struct SecurityAttributes(platform::SecurityAttributes);
 

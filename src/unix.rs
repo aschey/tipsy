@@ -51,11 +51,11 @@ impl SecurityAttributes {
     }
 }
 
-impl<T> IntoIpcPath for ServerId<T>
+impl<T> ServerId<T>
 where
     T: Into<String> + Send,
 {
-    fn into_ipc_path(self) -> io::Result<PathBuf> {
+    pub(crate) fn into_ipc_path(self) -> io::Result<PathBuf> {
         let sock_name = format!("{}.sock", self.0.into());
         #[cfg(target_os = "macos")]
         let path = match dirs::home_dir() {
