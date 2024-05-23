@@ -1,5 +1,7 @@
 # tipsy
 
+[![crates.io](https://img.shields.io/crates/v/tipsy.svg?logo=rust)](https://crates.io/crates/tipsy)
+[![docs.rs](https://img.shields.io/docsrs/tipsy?logo=rust)](https://docs.rs/tipsy)
 [![Dependency Status](https://deps.rs/repo/github/aschey/tipsy/status.svg?style=flat-square)](https://deps.rs/repo/github/aschey/tipsy)
 ![license](https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg)
 [![CI](https://github.com/aschey/tipsy/actions/workflows/ci.yml/badge.svg)](https://github.com/aschey/tipsy/actions/workflows/ci.yml)
