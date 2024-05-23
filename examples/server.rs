@@ -1,5 +1,5 @@
 use futures::StreamExt as _;
-use tipsy::{Endpoint, IpcEndpoint, IpcSecurity, OnConflict, SecurityAttributes, ServerId};
+use tipsy::{Endpoint, OnConflict, SecurityAttributes, ServerId};
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
 async fn run_server(path: String) {

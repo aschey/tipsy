@@ -4,8 +4,7 @@ use std::time::Duration;
 use futures::channel::oneshot;
 use futures::{Future, StreamExt};
 use tipsy::{
-    Connection, Endpoint, IntoIpcPath, IpcEndpoint, IpcSecurity, IpcStream, OnConflict,
-    SecurityAttributes, ServerId,
+    Connection, Endpoint, IntoIpcPath, IpcStream, OnConflict, SecurityAttributes, ServerId,
 };
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
@@ -129,7 +128,7 @@ async fn std_listener_stream() {
     let listener = std::os::unix::net::UnixListener::bind(&path).unwrap();
     let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
-    let incoming = Endpoint::from_std_listener(listener).unwrap();
+    let incoming = IpcStream::from_std_listener(listener).unwrap();
     tokio::spawn(async move {
         tokio::select! {
             _ = run_stream(incoming) => {},
@@ -138,7 +137,7 @@ async fn std_listener_stream() {
     });
 
     run_clients(|| {
-        Endpoint::from_std_stream(std::os::unix::net::UnixStream::connect(path.clone()).unwrap())
+        Connection::from_std_stream(std::os::unix::net::UnixStream::connect(path.clone()).unwrap())
     })
     .await;
     let _ = shutdown_tx.send(());

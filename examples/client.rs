@@ -1,4 +1,4 @@
-use tipsy::{Endpoint, IpcEndpoint, ServerId};
+use tipsy::{Endpoint, ServerId};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 #[tokio::main]

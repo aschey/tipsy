@@ -24,7 +24,7 @@ use windows_sys::Win32::System::SystemServices::{
     SECURITY_DESCRIPTOR_REVISION, SECURITY_WORLD_RID,
 };
 
-use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
+use crate::{IntoIpcPath, OnConflict, ServerId};
 
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
@@ -45,8 +45,7 @@ where
     }
 }
 
-/// Endpoint implementation for windows
-pub struct Endpoint {
+pub(crate) struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
     created_listener: bool,
@@ -72,7 +71,7 @@ impl Endpoint {
         Ok(server)
     }
 
-    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+    pub(crate) async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
         let path = path.into_ipc_path()?;
 
         // There is not async equivalent of waiting for a named pipe in Windows,
@@ -99,26 +98,20 @@ impl Endpoint {
 
         Ok(Connection::wrap(NamedPipe::Client(client)))
     }
-}
 
-impl IpcEndpoint for Endpoint {
-    fn incoming(self) -> io::Result<IpcStream> {
+    pub(crate) fn incoming(self) -> io::Result<IpcStream> {
         IpcStream::new(self)
     }
 
-    fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
+    pub(crate) fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
         self.security_attributes = security_attributes;
     }
 
-    fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         &self.path
     }
 
-    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
-        Self::connect(path).await
-    }
-
-    fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> io::Result<Self> {
+    pub(crate) fn new(path: impl IntoIpcPath, _on_conflict: OnConflict) -> io::Result<Self> {
         Ok(Self {
             path: path.into_ipc_path()?,
             security_attributes: SecurityAttributes::empty(),
@@ -127,13 +120,12 @@ impl IpcEndpoint for Endpoint {
     }
 }
 
-/// Stream of IPC connections
-pub struct IpcStream {
+pub(crate) struct IpcStream {
     inner: Pin<Box<dyn Stream<Item = io::Result<Connection>> + Send>>,
 }
 
 impl IpcStream {
-    fn new(mut endpoint: Endpoint) -> io::Result<Self> {
+    pub(crate) fn new(mut endpoint: Endpoint) -> io::Result<Self> {
         let pipe = endpoint.create_listener()?;
 
         let stream =
@@ -159,8 +151,7 @@ impl Stream for IpcStream {
     }
 }
 
-/// IPC connection.
-pub struct Connection {
+pub(crate) struct Connection {
     inner: NamedPipe,
 }
 
@@ -215,8 +206,7 @@ impl AsyncWrite for Connection {
     }
 }
 
-/// Security attributes.
-pub struct SecurityAttributes {
+pub(crate) struct SecurityAttributes {
     attributes: Option<InnerAttributes>,
 }
 
@@ -237,33 +227,30 @@ const DEFAULT_SECURITY_ATTRIBUTES: SecurityAttributes = SecurityAttributes {
 };
 
 impl SecurityAttributes {
-    /// Return raw handle of security attributes.
     pub(crate) unsafe fn as_ptr(&mut self) -> *const SECURITY_ATTRIBUTES {
         match self.attributes.as_mut() {
             Some(attributes) => attributes.as_ptr(),
             None => ptr::null_mut(),
         }
     }
-}
 
-impl IpcSecurity for SecurityAttributes {
-    fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         DEFAULT_SECURITY_ATTRIBUTES
     }
 
-    fn allow_everyone_connect(self) -> io::Result<Self> {
+    pub(crate) fn allow_everyone_connect(self) -> io::Result<Self> {
         let attributes = Some(InnerAttributes::allow_everyone(
             GENERIC_READ | FILE_WRITE_DATA,
         )?);
         Ok(Self { attributes })
     }
 
-    fn set_mode(self, _mode: u16) -> io::Result<Self> {
+    pub(crate) fn set_mode(self, _mode: u16) -> io::Result<Self> {
         // for now, does nothing.
         Ok(self)
     }
 
-    fn allow_everyone_create() -> io::Result<Self> {
+    pub(crate) fn allow_everyone_create() -> io::Result<Self> {
         let attributes = Some(InnerAttributes::allow_everyone(
             GENERIC_READ | GENERIC_WRITE,
         )?);

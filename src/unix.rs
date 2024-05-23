@@ -8,21 +8,17 @@ use std::task::{Context, Poll};
 
 use futures::Stream;
 use libc::chmod;
-use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{UnixListener, UnixStream};
 use tracing::trace;
 
-use crate::{IntoIpcPath, IpcEndpoint, IpcSecurity, OnConflict, ServerId};
+use crate::{IntoIpcPath, OnConflict, ServerId};
 
-/// Socket permissions and ownership on UNIX
-pub struct SecurityAttributes {
+pub(crate) struct SecurityAttributes {
     // read/write permissions for owner, group and others in unix octal.
     mode: Option<u16>,
 }
 
 impl SecurityAttributes {
-    /// called in unix, after server socket has been created
-    /// will apply security attributes to the socket.
     fn apply_permissions(&self, path: &str) -> io::Result<()> {
         if let Some(mode) = self.mode {
             let path = CString::new(path)?;
@@ -35,24 +31,22 @@ impl SecurityAttributes {
 
         Ok(())
     }
-}
 
-impl IpcSecurity for SecurityAttributes {
-    fn empty() -> Self {
+    pub(crate) fn empty() -> Self {
         Self { mode: Some(0o600) }
     }
 
-    fn allow_everyone_connect(mut self) -> io::Result<Self> {
+    pub(crate) fn allow_everyone_connect(mut self) -> io::Result<Self> {
         self.mode = Some(0o666);
         Ok(self)
     }
 
-    fn set_mode(mut self, mode: u16) -> io::Result<Self> {
+    pub(crate) fn set_mode(mut self, mode: u16) -> io::Result<Self> {
         self.mode = Some(mode);
         Ok(self)
     }
 
-    fn allow_everyone_create() -> io::Result<Self> {
+    pub(crate) fn allow_everyone_create() -> io::Result<Self> {
         Ok(Self { mode: None })
     }
 }
@@ -89,36 +83,18 @@ where
 }
 
 /// Endpoint implementation for unix systems
-pub struct Endpoint {
+pub(crate) struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
 }
 
 impl Endpoint {
-    /// Create a listener from an existing [`UnixListener`](std::os::unix::net::UnixListener)
-    pub fn from_std_listener(listener: std::os::unix::net::UnixListener) -> io::Result<IpcStream> {
-        listener.set_nonblocking(true)?;
-        let listener = UnixListener::from_std(listener)?;
-        Ok(IpcStream {
-            path: None,
-            listener,
-        })
-    }
-
     /// Inner platform-dependant state of the endpoint
-    fn inner(&self) -> io::Result<UnixListener> {
+    pub(crate) fn inner(&self) -> io::Result<UnixListener> {
         UnixListener::bind(&self.path)
     }
 
-    /// Create a stream from an existing [`UnixStream`](std::os::unix::net::UnixStream)
-    pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Connection> {
-        stream.set_nonblocking(true)?;
-        Ok(Connection::wrap(UnixStream::from_std(stream)?))
-    }
-}
-
-impl IpcEndpoint for Endpoint {
-    fn incoming(self) -> io::Result<IpcStream> {
+    pub(crate) fn incoming(self) -> io::Result<IpcStream> {
         let listener = self.inner()?;
         // the call to bind in `inner()` creates the file
         // `apply_permission()` will set the file permissions.
@@ -130,21 +106,19 @@ impl IpcEndpoint for Endpoint {
         })
     }
 
-    fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
+    pub(crate) fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
         self.security_attributes = security_attributes;
     }
 
-    async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
-        Ok(Connection::wrap(
-            UnixStream::connect(path.into_ipc_path()?).await?,
-        ))
+    pub(crate) async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+        UnixStream::connect(path.into_ipc_path()?).await
     }
 
-    fn path(&self) -> &Path {
+    pub(crate) fn path(&self) -> &Path {
         &self.path
     }
 
-    fn new(endpoint: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self> {
+    pub(crate) fn new(endpoint: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self> {
         let path = endpoint.into_ipc_path()?;
         if std::path::Path::new(&path).exists() {
             match on_conflict {
@@ -168,16 +142,35 @@ impl IpcEndpoint for Endpoint {
     }
 }
 
-/// Stream of incoming connections.
-///
-/// Removes the bound socket file when dropped.
-pub struct IpcStream {
+pub(crate) async fn from_std_stream(
+    stream: std::os::unix::net::UnixStream,
+) -> io::Result<Connection> {
+    stream.set_nonblocking(true)?;
+    UnixStream::from_std(stream)
+}
+
+pub(crate) struct IpcStream {
     path: Option<PathBuf>,
     listener: UnixListener,
 }
 
+impl IpcStream {
+    pub(crate) fn from_std_listener(
+        listener: std::os::unix::net::UnixListener,
+    ) -> io::Result<Self> {
+        listener.set_nonblocking(true)?;
+        let listener = UnixListener::from_std(listener)?;
+        Ok(Self {
+            path: None,
+            listener,
+        })
+    }
+}
+
+pub(crate) type Connection = UnixStream;
+
 impl Stream for IpcStream {
-    type Item = io::Result<UnixStream>;
+    type Item = io::Result<Connection>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let this = Pin::into_inner(self);
@@ -195,48 +188,5 @@ impl Drop for IpcStream {
                 trace!("Removed socket file at: {:?}", path);
             }
         }
-    }
-}
-
-/// IPC connection.
-pub struct Connection {
-    inner: UnixStream,
-}
-
-impl Connection {
-    fn wrap(stream: UnixStream) -> Self {
-        Self { inner: stream }
-    }
-}
-
-impl AsyncRead for Connection {
-    fn poll_read(
-        self: Pin<&mut Self>,
-        ctx: &mut Context<'_>,
-        buf: &mut ReadBuf<'_>,
-    ) -> Poll<io::Result<()>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_read(ctx, buf)
-    }
-}
-
-impl AsyncWrite for Connection {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        ctx: &mut Context<'_>,
-        buf: &[u8],
-    ) -> Poll<Result<usize, io::Error>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_write(ctx, buf)
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_flush(ctx)
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
-        let this = Pin::into_inner(self);
-        Pin::new(&mut this.inner).poll_shutdown(ctx)
     }
 }

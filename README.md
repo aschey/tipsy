@@ -15,7 +15,7 @@ and named pipes on windows (via [`tokio::net::windows::named_pipe`](https://docs
 ## Server
 
 ```rust,no_run
-use tipsy::{Endpoint, IpcEndpoint, OnConflict, ServerId};
+use tipsy::{Endpoint, OnConflict, ServerId};
 use futures::stream::StreamExt;
 use std::error::Error;
 
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 ## Client
 
 ```rust,no_run
-use tipsy::{Endpoint, IpcEndpoint, ServerId};
+use tipsy::{Endpoint, ServerId};
 use tokio::io::AsyncWriteExt;
 use std::error::Error;
 

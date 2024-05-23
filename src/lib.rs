@@ -21,43 +21,24 @@ mod win;
 
 use std::io;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
+use std::task::{Context, Poll};
 
-use futures::Future;
-#[cfg(unix)]
-pub use unix::{Connection, Endpoint, IpcStream, SecurityAttributes};
-#[cfg(windows)]
-pub use win::{Connection, Endpoint, IpcStream, SecurityAttributes};
+use futures::Stream;
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-/// Endpoint trait shared by Windows and Unix implementations
-pub trait IpcEndpoint: Send + Sized {
-    /// Stream of incoming connections
-    fn incoming(self) -> io::Result<IpcStream>;
-    /// Set security attributes for the connection
-    fn set_security_attributes(&mut self, security_attributes: SecurityAttributes);
-    /// Returns the path of the endpoint.
-    fn path(&self) -> &Path;
-    /// Make new connection using the provided path and running event pool.
-    fn connect(path: impl IntoIpcPath) -> impl Future<Output = io::Result<Connection>> + Send;
-    // async fn connect_messages(path: impl IntoIpcPath) -> io::Result<Connection>;
-    /// New IPC endpoint at the given path
-    fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self>;
+mod platform {
+    #[cfg(unix)]
+    pub(crate) use crate::unix::{
+        from_std_stream, Connection, Endpoint, IpcStream, SecurityAttributes,
+    };
+    #[cfg(windows)]
+    pub(crate) use crate::win::{Connection, Endpoint, IpcStream, SecurityAttributes};
 }
 
-/// Security trait used by Windows and Unix implementations
-pub trait IpcSecurity: Send + Sized {
-    /// New default security attributes.
-    fn empty() -> Self;
-    /// New default security attributes that allow everyone to connect.
-    fn allow_everyone_connect(self) -> io::Result<Self>;
-    /// Set a custom permission on the socket
-    fn set_mode(self, mode: u16) -> io::Result<Self>;
-    /// New default security attributes that allow everyone to create.
-    fn allow_everyone_create() -> io::Result<Self>;
-}
-
-/// Trait representing a path used for an IPC client or server
+/// Path used for an IPC client or server.
 pub trait IntoIpcPath: Send {
-    /// Converts the object into an IPC path
+    /// Converts the object into an IPC path.
     fn into_ipc_path(self) -> io::Result<PathBuf>;
 }
 
@@ -93,3 +74,118 @@ pub enum OnConflict {
 pub struct ServerId<T>(pub T)
 where
     T: Into<String> + Send;
+
+/// Permissions and ownership for the IPC connection
+pub struct SecurityAttributes(platform::SecurityAttributes);
+
+impl SecurityAttributes {
+    /// New default security attributes.
+    pub fn empty() -> Self {
+        Self(platform::SecurityAttributes::empty())
+    }
+
+    /// New default security attributes that allow everyone to connect.
+    pub fn allow_everyone_connect(self) -> io::Result<Self> {
+        Ok(Self(self.0.allow_everyone_connect()?))
+    }
+
+    /// Set a custom permission on the socket.
+    pub fn set_mode(self, mode: u16) -> io::Result<Self> {
+        Ok(Self(self.0.set_mode(mode)?))
+    }
+
+    /// New default security attributes that allow everyone to create.
+    pub fn allow_everyone_create() -> io::Result<Self> {
+        Ok(Self(platform::SecurityAttributes::allow_everyone_create()?))
+    }
+}
+
+/// IPC endpoint.
+pub struct Endpoint(platform::Endpoint);
+
+impl Endpoint {
+    /// Stream of incoming connections
+    pub fn incoming(self) -> io::Result<IpcStream> {
+        Ok(IpcStream(self.0.incoming()?))
+    }
+    /// Set security attributes for the connection
+    pub fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
+        self.0.set_security_attributes(security_attributes.0);
+    }
+    /// Returns the path of the endpoint.
+    pub fn path(&self) -> &Path {
+        self.0.path()
+    }
+    /// Make new connection using the provided path and running event pool.
+    pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+        Ok(Connection(platform::Endpoint::connect(path).await?))
+    }
+
+    /// New IPC endpoint at the given path
+    pub fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self> {
+        Ok(Self(platform::Endpoint::new(path, on_conflict)?))
+    }
+}
+
+/// IPC connection.
+pub struct Connection(platform::Connection);
+
+impl Connection {
+    /// Create a stream from an existing [`UnixStream`](std::os::unix::net::UnixStream).
+    #[cfg(unix)]
+    pub async fn from_std_stream(stream: std::os::unix::net::UnixStream) -> io::Result<Self> {
+        Ok(Self(platform::from_std_stream(stream).await?))
+    }
+}
+
+impl AsyncRead for Connection {
+    fn poll_read(
+        self: Pin<&mut Self>,
+        ctx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<()>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.0).poll_read(ctx, buf)
+    }
+}
+
+impl AsyncWrite for Connection {
+    fn poll_write(
+        self: Pin<&mut Self>,
+        ctx: &mut Context<'_>,
+        buf: &[u8],
+    ) -> Poll<Result<usize, io::Error>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.0).poll_write(ctx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.0).poll_flush(ctx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.0).poll_shutdown(ctx)
+    }
+}
+
+/// Stream of incoming connections.
+pub struct IpcStream(platform::IpcStream);
+
+impl IpcStream {
+    /// Create a listener from an existing [`UnixListener`](std::os::unix::net::UnixListener).
+    #[cfg(unix)]
+    pub fn from_std_listener(listener: std::os::unix::net::UnixListener) -> io::Result<Self> {
+        Ok(Self(platform::IpcStream::from_std_listener(listener)?))
+    }
+}
+
+impl Stream for IpcStream {
+    type Item = io::Result<Connection>;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = Pin::into_inner(self);
+        Pin::new(&mut this.0).poll_next(cx).map_ok(Connection)
+    }
+}
