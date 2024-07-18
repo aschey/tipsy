@@ -103,8 +103,9 @@ impl Endpoint {
         IpcStream::new(self)
     }
 
-    pub(crate) fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
+    pub(crate) fn security_attributes(mut self, security_attributes: SecurityAttributes) -> Self {
         self.security_attributes = security_attributes;
+        self
     }
 
     pub(crate) fn path(&self) -> &Path {

@@ -118,8 +118,9 @@ impl Endpoint {
         Ok(IpcStream(self.0.incoming()?))
     }
     /// Set security attributes for the connection
-    pub fn set_security_attributes(&mut self, security_attributes: SecurityAttributes) {
-        self.0.set_security_attributes(security_attributes.0);
+    pub fn security_attributes(mut self, security_attributes: SecurityAttributes) -> Self {
+        self.0 = self.0.security_attributes(security_attributes.0);
+        self
     }
     /// Returns the path of the endpoint.
     pub fn path(&self) -> &Path {
