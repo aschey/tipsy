@@ -10,7 +10,7 @@ use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
 fn dummy_endpoint(base: &str) -> ServerId<String> {
     let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
-    ServerId(format!("{base}-{num}"))
+    ServerId::new(format!("{base}-{num}"))
 }
 
 async fn run_server(endpoint: Endpoint) {
@@ -196,4 +196,14 @@ async fn test_endpoint_permissions() {
             .unwrap(),
     )
     .expect("failed with attributes for connecting");
+}
+
+#[cfg(unix)]
+#[test]
+fn set_server_id_directory() {
+    let path = ServerId::new("test")
+        .parent_folder("/tmp")
+        .into_ipc_path()
+        .unwrap();
+    assert_eq!("/tmp/test.sock", path.to_string_lossy());
 }

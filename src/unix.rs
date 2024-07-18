@@ -56,25 +56,13 @@ where
     T: Into<String> + Send,
 {
     pub(crate) fn into_ipc_path(self) -> io::Result<PathBuf> {
-        let sock_name = format!("{}.sock", self.0.into());
-        #[cfg(target_os = "macos")]
-        let path = match dirs::home_dir() {
-            Some(home) => {
-                let dir = home.join("Library/Caches/TemporaryItems");
-                if dir.exists() {
-                    dir.join(sock_name)
-                } else {
-                    temp_dir().join(sock_name)
-                }
-            }
-            None => temp_dir().join(sock_name),
-        };
+        let sock_name = format!("{}.sock", self.id.into());
+        let path = self
+            .parent_folder
+            .or_else(dirs::runtime_dir)
+            .unwrap_or_else(temp_dir)
+            .join(sock_name);
 
-        #[cfg(not(target_os = "macos"))]
-        let path = match dirs::runtime_dir() {
-            Some(runtime_dir) => runtime_dir.join(sock_name),
-            None => temp_dir().join(sock_name),
-        };
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }

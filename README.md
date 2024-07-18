@@ -24,7 +24,7 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    Endpoint::new(ServerId("my-server"), OnConflict::Overwrite)?
+    Endpoint::new(ServerId::new("my-server"), OnConflict::Overwrite)?
         .incoming()?
         .for_each(|conn| async {
             match conn {
@@ -45,7 +45,7 @@ use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let mut client = Endpoint::connect(ServerId("my-server")).await?;
+    let mut client = Endpoint::connect(ServerId::new("my-server")).await?;
     client.write_all(b"ping").await?;
     Ok(())
 }
