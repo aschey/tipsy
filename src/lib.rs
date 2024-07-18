@@ -66,14 +66,37 @@ pub enum OnConflict {
 ///
 /// Windows: `\\.\pipe\{serverId}`
 ///
-/// Mac: `$HOME/Library/Caches/TemporaryItems/{serverId}` (defaults to tmp if this directory does
-/// not exist)
+/// Mac: `$TMPDIR/{serverId}.sock`
 ///
-/// Linux: `$XDG_RUNTIME_DIR/{serverId}`
+/// Linux: `$XDG_RUNTIME_DIR/{serverId}.sock` (defaults to `$TMPDIR` if it doesn't exist)
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ServerId<T>(pub T)
+pub struct ServerId<T>
 where
-    T: Into<String> + Send;
+    T: Into<String> + Send,
+{
+    id: T,
+    parent_folder: Option<PathBuf>,
+}
+
+impl<T> ServerId<T>
+where
+    T: Into<String> + Send,
+{
+    /// Creates a new [`ServerId`].
+    pub fn new(id: T) -> Self {
+        Self {
+            id,
+            parent_folder: None,
+        }
+    }
+
+    /// Explicitly sets the parent folder for the socket instead of relying on the default
+    /// OS-specific behavior. This only has an effect on Unix systems.
+    pub fn parent_folder(mut self, folder: impl Into<PathBuf>) -> Self {
+        self.parent_folder = Some(folder.into());
+        self
+    }
+}
 
 impl<T> IntoIpcPath for ServerId<T>
 where

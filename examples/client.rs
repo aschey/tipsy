@@ -7,7 +7,7 @@ async fn main() {
         .nth(1)
         .expect("Run it with server path to connect as argument");
 
-    let mut client = Endpoint::connect(ServerId(path))
+    let mut client = Endpoint::connect(ServerId::new(path))
         .await
         .expect("Failed to connect client.");
 
