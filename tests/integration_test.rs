@@ -13,8 +13,9 @@ fn dummy_endpoint(base: &str) -> ServerId<String> {
     ServerId(format!("{base}-{num}"))
 }
 
-async fn run_server(mut endpoint: Endpoint) {
-    endpoint.set_security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
+async fn run_server(endpoint: Endpoint) {
+    let endpoint =
+        endpoint.security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
     let incoming = endpoint.incoming().expect("failed to open up a new socket");
 
     run_stream(incoming).await;
@@ -177,8 +178,9 @@ async fn incoming_stream_is_static() {
 fn create_endpoint_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
     let path = dummy_endpoint("test");
 
-    let mut endpoint = Endpoint::new(path, OnConflict::Overwrite).unwrap();
-    endpoint.set_security_attributes(attr);
+    let endpoint = Endpoint::new(path, OnConflict::Overwrite)
+        .unwrap()
+        .security_attributes(attr);
     endpoint.incoming().map(|_| ())
 }
 

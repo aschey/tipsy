@@ -3,8 +3,9 @@ use tipsy::{Endpoint, OnConflict, SecurityAttributes, ServerId};
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
 
 async fn run_server(path: String) {
-    let mut endpoint = Endpoint::new(ServerId(path), OnConflict::Overwrite).unwrap();
-    endpoint.set_security_attributes(SecurityAttributes::allow_everyone_create().unwrap());
+    let endpoint = Endpoint::new(ServerId(path), OnConflict::Overwrite)
+        .unwrap()
+        .security_attributes(SecurityAttributes::allow_everyone_create().unwrap());
 
     let incoming = endpoint.incoming().expect("failed to open new socket");
     futures::pin_mut!(incoming);
