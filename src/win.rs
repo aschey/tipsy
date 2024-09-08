@@ -8,7 +8,7 @@ use futures::{Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::windows::named_pipe;
 use windows_sys::Win32::Foundation::{
-    LocalFree, ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, HLOCAL, PSID,
+    LocalFree, ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, HLOCAL,
 };
 use windows_sys::Win32::Security::Authorization::{
     SetEntriesInAclW, ACCESS_MODE, EXPLICIT_ACCESS_W, SET_ACCESS, TRUSTEE_IS_SID,
@@ -16,7 +16,8 @@ use windows_sys::Win32::Security::Authorization::{
 };
 use windows_sys::Win32::Security::{
     AllocateAndInitializeSid, FreeSid, InitializeSecurityDescriptor, SetSecurityDescriptorDacl,
-    ACL, PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, SID_IDENTIFIER_AUTHORITY,
+    ACL, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR,
+    SID_IDENTIFIER_AUTHORITY,
 };
 use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::{LocalAlloc, LPTR};
@@ -315,7 +316,7 @@ struct AceWithSid<'a> {
 }
 
 impl<'a> AceWithSid<'a> {
-    fn new(sid: &'a Sid, trustee_type: TRUSTEE_TYPE) -> AceWithSid<'a> {
+    fn new(sid: &'a Sid, trustee_type: TRUSTEE_TYPE) -> Self {
         let mut explicit_access = unsafe { mem::zeroed::<EXPLICIT_ACCESS_W>() };
         explicit_access.Trustee.TrusteeForm = TRUSTEE_IS_SID;
         explicit_access.Trustee.TrusteeType = trustee_type;
