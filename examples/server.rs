@@ -1,6 +1,6 @@
 use futures::StreamExt as _;
 use tipsy::{Endpoint, OnConflict, SecurityAttributes, ServerId};
-use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, split};
 
 async fn run_server(path: String) {
     let endpoint = Endpoint::new(ServerId::new(path), OnConflict::Overwrite)

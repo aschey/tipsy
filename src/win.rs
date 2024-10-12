@@ -8,19 +8,19 @@ use futures::{Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::windows::named_pipe;
 use windows_sys::Win32::Foundation::{
-    LocalFree, ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, HLOCAL,
+    ERROR_PIPE_BUSY, ERROR_SUCCESS, GENERIC_READ, GENERIC_WRITE, HLOCAL, LocalFree,
 };
 use windows_sys::Win32::Security::Authorization::{
-    SetEntriesInAclW, ACCESS_MODE, EXPLICIT_ACCESS_W, SET_ACCESS, TRUSTEE_IS_SID,
+    ACCESS_MODE, EXPLICIT_ACCESS_W, SET_ACCESS, SetEntriesInAclW, TRUSTEE_IS_SID,
     TRUSTEE_IS_WELL_KNOWN_GROUP, TRUSTEE_TYPE,
 };
 use windows_sys::Win32::Security::{
-    AllocateAndInitializeSid, FreeSid, InitializeSecurityDescriptor, SetSecurityDescriptorDacl,
-    ACL, PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR,
-    SID_IDENTIFIER_AUTHORITY,
+    ACL, AllocateAndInitializeSid, FreeSid, InitializeSecurityDescriptor, PSECURITY_DESCRIPTOR,
+    PSID, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, SID_IDENTIFIER_AUTHORITY,
+    SetSecurityDescriptorDacl,
 };
 use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
-use windows_sys::Win32::System::Memory::{LocalAlloc, LPTR};
+use windows_sys::Win32::System::Memory::{LPTR, LocalAlloc};
 use windows_sys::Win32::System::SystemServices::{
     SECURITY_DESCRIPTOR_REVISION, SECURITY_WORLD_RID,
 };
