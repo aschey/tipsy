@@ -6,7 +6,7 @@ use futures::{Future, StreamExt};
 use tipsy::{
     Connection, Endpoint, IntoIpcPath, IpcStream, OnConflict, SecurityAttributes, ServerId,
 };
-use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, split};
 
 fn dummy_endpoint(base: &str) -> ServerId<String> {
     let num: u64 = rand::Rng::gen(&mut rand::thread_rng());

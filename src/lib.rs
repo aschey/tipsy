@@ -30,7 +30,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 mod platform {
     #[cfg(unix)]
     pub(crate) use crate::unix::{
-        from_std_stream, Connection, Endpoint, IpcStream, SecurityAttributes,
+        Connection, Endpoint, IpcStream, SecurityAttributes, from_std_stream,
     };
     #[cfg(windows)]
     pub(crate) use crate::win::{Connection, Endpoint, IpcStream, SecurityAttributes};
