@@ -1,6 +1,6 @@
 [package]
 name = "tipsy"
-version = "0.3.2"
+version = "0.3.3"
 rust-version = "1.75.0"
 edition = "2021"
 authors = ["Austin Schey <aschey13@gmail.com>"]
