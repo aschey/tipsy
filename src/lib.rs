@@ -126,7 +126,10 @@ where
     ///     assert_eq!("/home/myid.sock", path);
     /// }
     /// ```
-    pub fn parent_folder(mut self, folder: impl Into<PathBuf>) -> Self {
+    pub fn parent_folder<P>(mut self, folder: P) -> Self
+    where
+        P: Into<PathBuf>,
+    {
         self.parent_folder = Some(folder.into());
         self
     }
@@ -184,12 +187,18 @@ impl Endpoint {
         self.0.path()
     }
     /// Make new connection using the provided path and running event pool.
-    pub async fn connect(path: impl IntoIpcPath) -> io::Result<Connection> {
+    pub async fn connect<P>(path: P) -> io::Result<Connection>
+    where
+        P: IntoIpcPath,
+    {
         Ok(Connection(platform::Endpoint::connect(path).await?))
     }
 
     /// New IPC endpoint at the given path
-    pub fn new(path: impl IntoIpcPath, on_conflict: OnConflict) -> io::Result<Self> {
+    pub fn new<P>(path: P, on_conflict: OnConflict) -> io::Result<Self>
+    where
+        P: IntoIpcPath,
+    {
         Ok(Self(platform::Endpoint::new(path, on_conflict)?))
     }
 }

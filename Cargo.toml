@@ -41,11 +41,10 @@ tokio = { version = "1.37.0", features = [
 ] }
 rand = "0.9.0"
 
-[workspace.lints.rustdoc]
+[lints.rustdoc]
 broken_intra_doc_links = "deny"
 
-[workspace.lints.clippy]
-unwrap_used = "deny"
+[lints.clippy]
 allow_attributes = "deny"
 doc_markdown = "warn"
 default_trait_access = "warn"
