@@ -24,22 +24,40 @@ dirs = "6"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
-    "Win32_Foundation",
-    "Win32_Security",
-    "Win32_System_SystemServices",
-    "Win32_Storage_FileSystem",
-    "Win32_Security_Authorization",
-    "Win32_System_Memory",
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_System_SystemServices",
+  "Win32_Storage_FileSystem",
+  "Win32_Security_Authorization",
+  "Win32_System_Memory",
 ] }
 
 [dev-dependencies]
 tokio = { version = "1.37.0", features = [
-    "io-util",
-    "rt-multi-thread",
-    "time",
-    "macros",
+  "io-util",
+  "rt-multi-thread",
+  "time",
+  "macros",
 ] }
 rand = "0.9.0"
+
+[workspace.lints.rustdoc]
+broken_intra_doc_links = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+allow_attributes = "deny"
+doc_markdown = "warn"
+default_trait_access = "warn"
+ignored_unit_patterns = "warn"
+semicolon_if_nothing_returned = "warn"
+missing_fields_in_debug = "warn"
+use_self = "warn"
+impl_trait_in_params = "warn"
+missing_panics_doc = "warn"
+explicit_iter_loop = "warn"
+explicit_into_iter_loop = "warn"
+redundant_closure_for_method_calls = "warn"
 
 [[example]]
 name = "client"
