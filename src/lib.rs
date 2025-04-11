@@ -51,7 +51,7 @@ pub enum OnConflict {
     Overwrite,
 }
 
-/// Cross-platform representation of an IPC connection path
+/// Cross-platform representation of an IPC connection path.
 ///
 /// Calling [`IntoIpcPath::into_ipc_path`] on this struct will generate a platform-specific IPC
 /// path.
@@ -61,6 +61,32 @@ pub enum OnConflict {
 /// Mac: `$TMPDIR/{serverId}.sock`
 ///
 /// Linux: `$XDG_RUNTIME_DIR/{serverId}.sock` (defaults to `$TMPDIR` if it doesn't exist)
+///
+/// The value for `serverId` can contain forward slashes, which will be interpreted as part of the
+/// path. On Windows, these will be converted to backslashes.
+///
+/// # Example
+///
+/// ```
+/// use std::env;
+///
+/// use tipsy::{IntoIpcPath, ServerId};
+///
+/// // Forcing these environment variables to ensure consistent results.
+/// // You probably don't want to do this in your application.
+/// env::set_var("XDG_RUNTIME_DIR", "/tmp");
+/// env::set_var("TMPDIR", "/tmp");
+///
+/// let server_id = ServerId::new("some/id");
+/// let path = server_id.into_ipc_path().unwrap();
+/// let path = path.to_string_lossy();
+///
+/// if cfg!(windows) {
+///     assert_eq!(r"\\.\pipe\some\id", path);
+/// } else {
+///     assert_eq!("/tmp/some/id.sock", path);
+/// }
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServerId<T>
 where
@@ -84,6 +110,22 @@ where
 
     /// Explicitly sets the parent folder for the socket instead of relying on the default
     /// OS-specific behavior. This only has an effect on Unix systems.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use tipsy::{IntoIpcPath, ServerId};
+    ///
+    /// let server_id = ServerId::new("myid").parent_folder("/home");
+    /// let path = server_id.into_ipc_path().unwrap();
+    /// let path = path.to_string_lossy();
+    ///
+    /// if cfg!(windows) {
+    ///     assert_eq!(r"\\.\pipe\myid", path);
+    /// } else {
+    ///     assert_eq!("/home/myid.sock", path);
+    /// }
+    /// ```
     pub fn parent_folder(mut self, folder: impl Into<PathBuf>) -> Self {
         self.parent_folder = Some(folder.into());
         self
