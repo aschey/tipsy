@@ -132,7 +132,7 @@ async fn std_listener_stream() {
     let incoming = IpcStream::from_std_listener(listener).unwrap();
     tokio::spawn(async move {
         tokio::select! {
-            _ = run_stream(incoming) => {},
+            () = run_stream(incoming) => {},
             _ = shutdown_rx => {}
         }
     });
@@ -150,7 +150,7 @@ async fn smoke_test(endpoint: Endpoint) {
 
     tokio::spawn(async move {
         tokio::select! {
-            _ = run_server(endpoint) => {}
+            () = run_server(endpoint) => {}
             _ = shutdown_rx => {}
         }
     });

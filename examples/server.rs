@@ -44,5 +44,5 @@ async fn main() {
     let path = std::env::args()
         .nth(1)
         .expect("Run it with server path as argument");
-    run_server(path).await
+    run_server(path).await;
 }
