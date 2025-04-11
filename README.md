@@ -9,18 +9,21 @@
 ![GitHub repo size](https://img.shields.io/github/repo-size/aschey/tipsy)
 ![Lines of Code](https://aschey.tech/tokei/github/aschey/tipsy)
 
-This is a fork of [parity-tokio-ipc](https://github.com/paritytech/parity-tokio-ipc).
+This is a fork of
+[parity-tokio-ipc](https://github.com/paritytech/parity-tokio-ipc).
 
-[tipsy](https://github.com/aschey/tipsy) is a library for cross-platform async IPC using Tokio.
-It utilizes unix sockets on UNIX (via [`tokio::net::UnixStream`](https://docs.rs/tokio/latest/tokio/net/struct.UnixStream.html))
-and named pipes on windows (via [`tokio::net::windows::named_pipe`](https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/index.html)).
+[tipsy](https://github.com/aschey/tipsy) is a library for cross-platform async
+IPC using Tokio. It utilizes unix sockets on UNIX (via
+[`tokio::net::UnixStream`](https://docs.rs/tokio/latest/tokio/net/struct.UnixStream.html))
+and named pipes on windows (via
+[`tokio::net::windows::named_pipe`](https://docs.rs/tokio/latest/tokio/net/windows/named_pipe/index.html)).
 
 ## Server
 
 ```rust,no_run
-use tipsy::{Endpoint, OnConflict, ServerId};
 use futures::stream::StreamExt;
 use std::error::Error;
+use tipsy::{Endpoint, OnConflict, ServerId};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -39,9 +42,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 ## Client
 
 ```rust,no_run
+use std::error::Error;
 use tipsy::{Endpoint, ServerId};
 use tokio::io::AsyncWriteExt;
-use std::error::Error;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

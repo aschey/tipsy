@@ -9,7 +9,7 @@ use tipsy::{
 use tokio::io::{AsyncReadExt, AsyncWriteExt, split};
 
 fn dummy_endpoint(base: &str) -> ServerId<String> {
-    let num: u64 = rand::Rng::gen(&mut rand::thread_rng());
+    let num: u64 = rand::Rng::random(&mut rand::rng());
     ServerId::new(format!("{base}-{num}"))
 }
 
