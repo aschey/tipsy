@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::Stream;
+use futures_util::Stream;
 use libc::chmod;
 use tokio::net::{UnixListener, UnixStream};
 use tracing::trace;

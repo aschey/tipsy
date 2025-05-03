@@ -21,7 +21,7 @@ and named pipes on windows (via
 ## Server
 
 ```rust,no_run
-use futures::stream::StreamExt;
+use futures_util::stream::StreamExt;
 use std::error::Error;
 use tipsy::{Endpoint, OnConflict, ServerId};
 

@@ -1,8 +1,8 @@
 use std::io;
 use std::time::Duration;
 
-use futures::channel::oneshot;
-use futures::{Future, StreamExt};
+use futures_channel::oneshot;
+use futures_util::{Future, StreamExt};
 use tipsy::{
     Connection, Endpoint, IntoIpcPath, IpcStream, OnConflict, SecurityAttributes, ServerId,
 };
@@ -22,7 +22,7 @@ async fn run_server(endpoint: Endpoint) {
 }
 
 async fn run_stream(incoming: IpcStream) {
-    futures::pin_mut!(incoming);
+    futures_util::pin_mut!(incoming);
     while let Some(result) = incoming.next().await {
         match result {
             Ok(stream) => {

@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use futures::Stream;
+use futures_util::Stream;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 mod platform {
