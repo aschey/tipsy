@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use std::{io, marker, mem, ptr};
 
-use futures::{Stream, StreamExt};
+use futures_util::{Stream, StreamExt};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::windows::named_pipe;
 use windows_sys::Win32::Foundation::{
@@ -130,14 +130,16 @@ impl IpcStream {
     pub(crate) fn new(mut endpoint: Endpoint) -> io::Result<Self> {
         let pipe = endpoint.create_listener()?;
 
-        let stream =
-            futures::stream::try_unfold((pipe, endpoint), |(listener, mut endpoint)| async move {
+        let stream = futures_util::stream::try_unfold(
+            (pipe, endpoint),
+            |(listener, mut endpoint)| async move {
                 listener.connect().await?;
                 let new_listener = endpoint.create_listener()?;
                 let conn = Connection::wrap(NamedPipe::Server(listener));
 
                 Ok(Some((conn, (new_listener, endpoint))))
-            });
+            },
+        );
         Ok(Self {
             inner: Box::pin(stream),
         })
