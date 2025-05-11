@@ -14,8 +14,7 @@ fn dummy_endpoint(base: &str) -> ServerId<String> {
 }
 
 async fn run_server(endpoint: Endpoint) {
-    let endpoint =
-        endpoint.security_attributes(SecurityAttributes::empty().set_mode(0o777).unwrap());
+    let endpoint = endpoint.security_attributes(SecurityAttributes::empty().mode(0o777).unwrap());
     let incoming = endpoint.incoming().expect("failed to open up a new socket");
 
     run_stream(incoming).await;
@@ -175,27 +174,23 @@ async fn incoming_stream_is_static() {
     is_static(endpoint.incoming());
 }
 
-fn create_endpoint_with_permissions(attr: SecurityAttributes) -> ::std::io::Result<()> {
+async fn create_endpoint_with_permissions(attr: SecurityAttributes) {
     let path = dummy_endpoint("test");
 
-    let endpoint = Endpoint::new(path, OnConflict::Overwrite)
+    let endpoint = Endpoint::new(path.clone(), OnConflict::Overwrite)
         .unwrap()
         .security_attributes(attr);
-    endpoint.incoming().map(|_| ())
+    let incoming = endpoint.incoming().unwrap();
+    Endpoint::connect(path).await.unwrap();
+    // Ensure we drop the server only after connecting
+    drop(incoming);
 }
 
 #[tokio::test]
 async fn test_endpoint_permissions() {
-    create_endpoint_with_permissions(SecurityAttributes::empty())
-        .expect("failed with no attributes");
-    create_endpoint_with_permissions(SecurityAttributes::allow_everyone_create().unwrap())
-        .expect("failed with attributes for creating");
-    create_endpoint_with_permissions(
-        SecurityAttributes::empty()
-            .allow_everyone_connect()
-            .unwrap(),
-    )
-    .expect("failed with attributes for connecting");
+    create_endpoint_with_permissions(SecurityAttributes::empty()).await;
+    create_endpoint_with_permissions(SecurityAttributes::allow_everyone_create().unwrap()).await;
+    create_endpoint_with_permissions(SecurityAttributes::allow_everyone_connect().unwrap()).await;
 }
 
 #[cfg(unix)]

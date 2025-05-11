@@ -36,14 +36,12 @@ impl SecurityAttributes {
         Self { mode: Some(0o600) }
     }
 
-    pub(crate) fn allow_everyone_connect(mut self) -> io::Result<Self> {
-        self.mode = Some(0o666);
-        Ok(self)
+    pub(crate) fn allow_everyone_connect() -> io::Result<Self> {
+        Ok(Self { mode: Some(0o666) })
     }
 
-    pub(crate) fn set_mode(mut self, mode: u16) -> io::Result<Self> {
-        self.mode = Some(mode);
-        Ok(self)
+    pub(crate) fn mode(self, mode: u16) -> io::Result<Self> {
+        Ok(Self { mode: Some(mode) })
     }
 
     pub(crate) fn allow_everyone_create() -> io::Result<Self> {

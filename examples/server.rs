@@ -1,11 +1,9 @@
 use futures_util::StreamExt as _;
-use tipsy::{Endpoint, OnConflict, SecurityAttributes, ServerId};
+use tipsy::{Endpoint, OnConflict, ServerId};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, split};
 
 async fn run_server(path: String) {
-    let endpoint = Endpoint::new(ServerId::new(path), OnConflict::Overwrite)
-        .unwrap()
-        .security_attributes(SecurityAttributes::allow_everyone_create().unwrap());
+    let endpoint = Endpoint::new(ServerId::new(path), OnConflict::Overwrite).unwrap();
 
     let incoming = endpoint.incoming().expect("failed to open new socket");
     futures_util::pin_mut!(incoming);

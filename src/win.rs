@@ -19,7 +19,6 @@ use windows_sys::Win32::Security::{
     PSID, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR, SID_IDENTIFIER_AUTHORITY,
     SetSecurityDescriptorDacl,
 };
-use windows_sys::Win32::Storage::FileSystem::FILE_WRITE_DATA;
 use windows_sys::Win32::System::Memory::{LPTR, LocalAlloc};
 use windows_sys::Win32::System::SystemServices::{
     SECURITY_DESCRIPTOR_REVISION, SECURITY_WORLD_RID,
@@ -242,14 +241,11 @@ impl SecurityAttributes {
         DEFAULT_SECURITY_ATTRIBUTES
     }
 
-    pub(crate) fn allow_everyone_connect(self) -> io::Result<Self> {
-        let attributes = Some(InnerAttributes::allow_everyone(
-            GENERIC_READ | FILE_WRITE_DATA,
-        )?);
-        Ok(Self { attributes })
+    pub(crate) fn allow_everyone_connect() -> io::Result<Self> {
+        Self::allow_everyone_create()
     }
 
-    pub(crate) fn set_mode(self, _mode: u16) -> io::Result<Self> {
+    pub(crate) fn mode(self, _mode: u16) -> io::Result<Self> {
         // for now, does nothing.
         Ok(self)
     }
