@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 
-- Allow clients to write data when using SecurityAttributes::allow_everyone_connect() ([#20](https://github.com/aschey/tipsy/issues/20)) - ([8b87ab4](https://github.com/aschey/tipsy/commit/8b87ab418064770c09a3f548b14c7a18a6c8a0a3))
+- [**breaking**] Allow clients to write data when using `SecurityAttributes::allow_everyone_connect()` ([#20](https://github.com/aschey/tipsy/issues/20)) - ([8b87ab4](https://github.com/aschey/tipsy/commit/8b87ab418064770c09a3f548b14c7a18a6c8a0a3))
 
 ### Miscellaneous Tasks
 
