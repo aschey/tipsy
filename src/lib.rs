@@ -154,16 +154,22 @@ impl SecurityAttributes {
     }
 
     /// New default security attributes that allow everyone to connect.
-    pub fn allow_everyone_connect(self) -> io::Result<Self> {
-        Ok(Self(self.0.allow_everyone_connect()?))
+    ///
+    /// On Windows, this is equivalent to [`SecurityAttributes::allow_everyone_create`].
+    pub fn allow_everyone_connect() -> io::Result<Self> {
+        Ok(Self(platform::SecurityAttributes::allow_everyone_connect()?))
     }
 
     /// Set a custom permission on the socket.
-    pub fn set_mode(self, mode: u16) -> io::Result<Self> {
-        Ok(Self(self.0.set_mode(mode)?))
+    ///
+    /// Has no effect on Windows.
+    pub fn mode(self, mode: u16) -> io::Result<Self> {
+        Ok(Self(self.0.mode(mode)?))
     }
 
     /// New default security attributes that allow everyone to create.
+    ///
+    /// On Windows, this is equivalent to [`SecurityAttributes::allow_everyone_connect`].
     pub fn allow_everyone_create() -> io::Result<Self> {
         Ok(Self(platform::SecurityAttributes::allow_everyone_create()?))
     }
