@@ -231,9 +231,11 @@ const DEFAULT_SECURITY_ATTRIBUTES: SecurityAttributes = SecurityAttributes {
 
 impl SecurityAttributes {
     pub(crate) unsafe fn as_ptr(&mut self) -> *const SECURITY_ATTRIBUTES {
-        match self.attributes.as_mut() {
-            Some(attributes) => attributes.as_ptr(),
-            None => ptr::null_mut(),
+        unsafe {
+            match self.attributes.as_mut() {
+                Some(attributes) => attributes.as_ptr(),
+                None => ptr::null_mut(),
+            }
         }
     }
 
@@ -391,10 +393,7 @@ impl SecurityDescriptor {
         let descriptor_ptr = unsafe { LocalAlloc(LPTR, mem::size_of::<SECURITY_DESCRIPTOR>()) }
             as PSECURITY_DESCRIPTOR;
         if descriptor_ptr.is_null() {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                "Failed to allocate security descriptor",
-            ));
+            return Err(io::Error::other("Failed to allocate security descriptor"));
         }
 
         if unsafe {

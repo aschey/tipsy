@@ -60,4 +60,5 @@ See [examples](https://github.com/aschey/tipsy/tree/main/examples).
 
 ## Supported Rust Versions
 
-The MSRV is currently `1.75.0`.
+The MSRV is currently `1.85.0`. Since Cargo's V3 resolver supports MSRV-aware
+dependencies, we do not treat an MSRV bump as a breaking change.

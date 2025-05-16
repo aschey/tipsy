@@ -23,7 +23,7 @@ impl SecurityAttributes {
         if let Some(mode) = self.mode {
             let path = CString::new(path)?;
             // mode_t doesn't need into() on mac but does on linux
-            #[allow(clippy::useless_conversion)]
+            #[cfg_attr(target_os = "macos", expect(clippy::useless_conversion))]
             if unsafe { chmod(path.as_ptr(), mode.into()) } == -1 {
                 return Err(Error::last_os_error());
             }
