@@ -74,8 +74,10 @@ pub enum OnConflict {
 ///
 /// // Forcing these environment variables to ensure consistent results.
 /// // You probably don't want to do this in your application.
-/// env::set_var("XDG_RUNTIME_DIR", "/tmp");
-/// env::set_var("TMPDIR", "/tmp");
+/// unsafe {
+///     env::set_var("XDG_RUNTIME_DIR", "/tmp");
+///     env::set_var("TMPDIR", "/tmp");
+/// }
 ///
 /// let server_id = ServerId::new("some/id");
 /// let path = server_id.into_ipc_path().unwrap();
