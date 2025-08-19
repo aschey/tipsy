@@ -11,7 +11,7 @@ homepage = "https://github.com/aschey/tipsy"
 keywords = ["tokio", "ipc"]
 categories = ["asynchronous", "network-programming"]
 description = "Cross-platform IPC for Tokio"
-include = ["/src", "/examples", "/tests"]
+include = ["/src", "/examples", "/tests", "LICENSE-MIT", "LICENSE-APACHE"]
 
 [dependencies]
 futures-util = "0.3"
