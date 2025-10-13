@@ -1,3 +1,4 @@
+use core::fmt;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -26,6 +27,7 @@ use windows_sys::Win32::System::SystemServices::{
 
 use crate::{IntoIpcPath, OnConflict, ServerId};
 
+#[derive(Debug)]
 enum NamedPipe {
     Server(named_pipe::NamedPipeServer),
     Client(named_pipe::NamedPipeClient),
@@ -45,6 +47,7 @@ where
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
@@ -125,6 +128,12 @@ pub(crate) struct IpcStream {
     inner: Pin<Box<dyn Stream<Item = io::Result<Connection>> + Send>>,
 }
 
+impl fmt::Debug for IpcStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<stream>")
+    }
+}
+
 impl IpcStream {
     pub(crate) fn new(mut endpoint: Endpoint) -> io::Result<Self> {
         let pipe = endpoint.create_listener()?;
@@ -154,6 +163,7 @@ impl Stream for IpcStream {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct Connection {
     inner: NamedPipe,
 }
@@ -209,6 +219,7 @@ impl AsyncWrite for Connection {
     }
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct SecurityAttributes {
     attributes: Option<InnerAttributes>,
 }
@@ -344,6 +355,7 @@ impl<'a> AceWithSid<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Acl {
     acl_ptr: *const ACL,
 }
@@ -384,6 +396,7 @@ impl Drop for Acl {
     }
 }
 
+#[derive(Debug, Clone)]
 struct SecurityDescriptor {
     descriptor_ptr: PSECURITY_DESCRIPTOR,
 }
@@ -429,10 +442,21 @@ impl Drop for SecurityDescriptor {
     }
 }
 
+#[derive(Clone)]
 struct InnerAttributes {
     descriptor: SecurityDescriptor,
     acl: Acl,
     attrs: SECURITY_ATTRIBUTES,
+}
+
+impl fmt::Debug for InnerAttributes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InnerAttributes")
+            .field("descriptor", &self.descriptor)
+            .field("acl", &self.acl)
+            .field("attrs", &"<attrs>")
+            .finish()
+    }
 }
 
 impl InnerAttributes {
