@@ -1,7 +1,7 @@
 //! Tokio IPC transport. Under the hood uses Unix Domain Sockets for Linux/Mac
 //! and Named Pipes for Windows.
 
-#![deny(missing_docs)]
+#![warn(missing_docs, missing_debug_implementations)]
 #![forbid(clippy::unwrap_used)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc = include_str!("../README.md")]
@@ -146,7 +146,8 @@ where
     }
 }
 
-/// Permissions and ownership for the IPC connection
+/// Permissions and ownership for the IPC connection.
+#[derive(Debug, Clone)]
 pub struct SecurityAttributes(platform::SecurityAttributes);
 
 impl SecurityAttributes {
@@ -178,6 +179,7 @@ impl SecurityAttributes {
 }
 
 /// IPC endpoint.
+#[derive(Debug, Clone)]
 pub struct Endpoint(platform::Endpoint);
 
 impl Endpoint {
@@ -212,6 +214,7 @@ impl Endpoint {
 }
 
 /// IPC connection.
+#[derive(Debug)]
 pub struct Connection(platform::Connection);
 
 impl Connection {
@@ -255,6 +258,7 @@ impl AsyncWrite for Connection {
 }
 
 /// Stream of incoming connections.
+#[derive(Debug)]
 pub struct IpcStream(platform::IpcStream);
 
 impl IpcStream {

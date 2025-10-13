@@ -13,6 +13,7 @@ use tracing::trace;
 
 use crate::{IntoIpcPath, OnConflict, ServerId};
 
+#[derive(Debug, Clone)]
 pub(crate) struct SecurityAttributes {
     // read/write permissions for owner, group and others in unix octal.
     mode: Option<u16>,
@@ -69,6 +70,7 @@ where
 }
 
 /// Endpoint implementation for unix systems
+#[derive(Debug, Clone)]
 pub(crate) struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,
@@ -136,6 +138,7 @@ pub(crate) async fn from_std_stream(
     UnixStream::from_std(stream)
 }
 
+#[derive(Debug)]
 pub(crate) struct IpcStream {
     path: Option<PathBuf>,
     listener: UnixListener,
