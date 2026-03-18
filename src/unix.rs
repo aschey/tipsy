@@ -13,7 +13,7 @@ use tracing::trace;
 
 use crate::{IntoIpcPath, OnConflict, ServerId};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct SecurityAttributes {
     // read/write permissions for owner, group and others in unix octal.
     mode: Option<u16>,
@@ -70,7 +70,7 @@ where
 }
 
 /// Endpoint implementation for unix systems
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct Endpoint {
     path: PathBuf,
     security_attributes: SecurityAttributes,

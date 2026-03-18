@@ -47,9 +47,10 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct Endpoint {
     path: PathBuf,
+    // This is not safe to clone due to usage of pointers that are freed on drop
     security_attributes: SecurityAttributes,
     created_listener: bool,
 }
@@ -219,7 +220,7 @@ impl AsyncWrite for Connection {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct SecurityAttributes {
     attributes: Option<InnerAttributes>,
 }
@@ -355,7 +356,7 @@ impl<'a> AceWithSid<'a> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Acl {
     acl_ptr: *const ACL,
 }
@@ -396,7 +397,7 @@ impl Drop for Acl {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct SecurityDescriptor {
     descriptor_ptr: PSECURITY_DESCRIPTOR,
 }
@@ -442,7 +443,6 @@ impl Drop for SecurityDescriptor {
     }
 }
 
-#[derive(Clone)]
 struct InnerAttributes {
     descriptor: SecurityDescriptor,
     acl: Acl,
