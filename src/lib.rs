@@ -147,7 +147,7 @@ where
 }
 
 /// Permissions and ownership for the IPC connection.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SecurityAttributes(platform::SecurityAttributes);
 
 impl SecurityAttributes {
@@ -179,7 +179,7 @@ impl SecurityAttributes {
 }
 
 /// IPC endpoint.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Endpoint(platform::Endpoint);
 
 impl Endpoint {
